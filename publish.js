@@ -3,10 +3,10 @@ import shell from 'shelljs';
 
 shell.rm('-rf', 'dist');
 
-// if (shell.exec('npm run test').code !== 0) {
-//   shell.echo('Error: test failed');
-//   shell.exit(1);
-// }
+if (shell.exec('npm run test').code !== 0) {
+  shell.echo('Error: test failed');
+  shell.exit(1);
+}
 
 if (shell.exec('npm run build').code !== 0) {
   shell.echo('Error: build failed');
