@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
-    "publish": "node publish",
+    "pub": "node publish.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --collect-coverage"
