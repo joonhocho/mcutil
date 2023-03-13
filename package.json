@@ -1,6 +1,6 @@
 {
   "name": "@joonhocho/mcutil",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "",
   "type": "module",
   "module": "dist/index.js",
