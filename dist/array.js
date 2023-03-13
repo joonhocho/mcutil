@@ -1,1 +1,157 @@
-var T=(e,r)=>e.indexOf(r)===-1?(e.push(r),!0):!1,u=(e,r)=>{let n=e.indexOf(r);return n!==-1&&e.splice(n,1),n},c=(e,r,n,t)=>{let i=e.indexOf(r);if(i===-1){if(t)return e.push(n),e.length-1}else e[i]=n;return i},f=e=>e.filter(r=>r!=null),p=(e,r,n)=>{if(e===r)return!0;if(e.length!==r.length)return!1;if(n){for(let t=0,i=e.length;t<i;t+=1)if(!n(e[t],r[t]))return!1}else for(let t=0,i=e.length;t<i;t+=1)if(e[t]!==r[t])return!1;return!0},g=(e,r)=>{if(e.length<=1)return e.slice();let n={};return e.filter(t=>{let i=r(t);return n[i]===1?!1:(n[i]=1,!0)})},d=e=>{if(e.length<=1)return e.slice();let r={};return e.filter(n=>r[n]===1?!1:(r[n]=1,!0))},x=(e,r)=>{for(let n=e.length-1;n>=0;n-=1){let t=e[n];if(r(t,n,e))return t}},m=(e,r)=>{for(let n=e.length-1;n>=0;n-=1){let t=e[n];if(r(t,n,e))return n}return-1},h=e=>e.length?e:null,y=(e,r,n)=>{if(e.length<=1)return e;let t=r+n;if(t=t<=0?0:t>=e.length-1?e.length-1:t,t===r)return e;let[i]=e.splice(r,1);return e.splice(t,0,i),e},o=(e,r)=>{let n={};for(let t=0,i=e.length;t<i;t+=1)n[e[t]]=r;return n},l=(e,r)=>{let n={};for(let t=0,i=e.length;t<i;t+=1){let s=e[t];n[r(s)]=s}return n},b=(e,r)=>{if(!e.length||!r.length)return e.slice();let n=o(r,1);return e.filter(t=>n[t]!==1)},a=(e,r,n)=>{if(!e.length||!r.length)return e.slice();let t=l(r,n);return e.filter(i=>!(n(i)in t))},R=(e,r)=>{if(!e.length||!r.length)return[];let n=o(r,1);return e.filter(t=>n[t]===1)},V=(e,r,n)=>{if(!e.length||!r.length)return[];let t=l(r,n);return e.filter(i=>n(i)in t)},I=(e,r)=>{let n={};for(let t=0,i=e.length;t<i;t+=1){let s=e[t];n[s]=r(s,t,e)}return n},K=(e,r,n)=>{for(let t=0,i=r.length;t<i;t+=1)n(e,r[t],t,r);return e};export{T as addItem,V as arrayIntersection,K as arrayMutate,a as arraySubtract,I as arrayToKeys,l as arrayToMap,p as arraysEqual,g as dedup,d as dedupKeys,h as emptyToNull,x as findLast,m as findLastIndex,R as keysIntersection,b as keysSubtract,o as keysToMap,y as moveItem,u as removeItem,c as replaceItem,f as withoutNil};
+export const addItem = (arr, item) => {
+    if (arr.indexOf(item) === -1) {
+        arr.push(item);
+        return true;
+    }
+    return false;
+};
+export const removeItem = (arr, item) => {
+    const index = arr.indexOf(item);
+    if (index !== -1) {
+        arr.splice(index, 1);
+    }
+    return index;
+};
+export const replaceItem = (arr, oldItem, newItem, pushIfNotFound) => {
+    const index = arr.indexOf(oldItem);
+    if (index === -1) {
+        // not found
+        if (pushIfNotFound) {
+            arr.push(newItem);
+            return arr.length - 1;
+        }
+    }
+    else {
+        // found
+        arr[index] = newItem;
+    }
+    return index;
+};
+export const withoutNil = (arr) => arr.filter((x) => x != null);
+export const arraysEqual = (a1, a2, itemsEqual) => {
+    if (a1 === a2)
+        return true;
+    if (a1.length !== a2.length)
+        return false;
+    if (itemsEqual) {
+        for (let i = 0, l = a1.length; i < l; i += 1) {
+            if (!itemsEqual(a1[i], a2[i]))
+                return false;
+        }
+    }
+    else {
+        for (let i = 0, l = a1.length; i < l; i += 1) {
+            if (a1[i] !== a2[i])
+                return false;
+        }
+    }
+    return true;
+};
+export const dedup = (arr, toId) => {
+    if (arr.length <= 1)
+        return arr.slice();
+    const ids = {};
+    return arr.filter((item) => {
+        const id = toId(item);
+        if (ids[id] === 1)
+            return false;
+        ids[id] = 1;
+        return true;
+    });
+};
+export const dedupKeys = (arr) => {
+    if (arr.length <= 1)
+        return arr.slice();
+    const ids = {};
+    return arr.filter((item) => {
+        if (ids[item] === 1)
+            return false;
+        ids[item] = 1;
+        return true;
+    });
+};
+export const findLast = (arr, predicate) => {
+    for (let i = arr.length - 1; i >= 0; i -= 1) {
+        const item = arr[i];
+        if (predicate(item, i, arr)) {
+            return item;
+        }
+    }
+    return undefined;
+};
+export const findLastIndex = (arr, predicate) => {
+    for (let i = arr.length - 1; i >= 0; i -= 1) {
+        const item = arr[i];
+        if (predicate(item, i, arr)) {
+            return i;
+        }
+    }
+    return -1;
+};
+export const emptyToNull = (arr) => arr.length ? arr : null;
+export const moveItem = (arr, index, delta) => {
+    if (arr.length <= 1)
+        return arr;
+    let newIndex = index + delta;
+    newIndex =
+        newIndex <= 0 ? 0 : newIndex >= arr.length - 1 ? arr.length - 1 : newIndex;
+    if (newIndex === index)
+        return arr;
+    const [item] = arr.splice(index, 1);
+    arr.splice(newIndex, 0, item);
+    return arr;
+};
+export const keysToMap = (arr, val) => {
+    const map = {};
+    for (let i = 0, il = arr.length; i < il; i += 1) {
+        map[arr[i]] = val;
+    }
+    return map;
+};
+export const arrayToMap = (arr, getKey) => {
+    const map = {};
+    for (let i = 0, il = arr.length; i < il; i += 1) {
+        const item = arr[i];
+        map[getKey(item)] = item;
+    }
+    return map;
+};
+// a - b
+export const keysSubtract = (a, b) => {
+    if (!a.length || !b.length)
+        return a.slice();
+    const bMap = keysToMap(b, 1);
+    return a.filter((x) => bMap[x] !== 1);
+};
+export const arraySubtract = (a, b, getKey) => {
+    if (!a.length || !b.length)
+        return a.slice();
+    const bMap = arrayToMap(b, getKey);
+    return a.filter((x) => !(getKey(x) in bMap));
+};
+export const keysIntersection = (a, b) => {
+    if (!a.length || !b.length)
+        return [];
+    const bMap = keysToMap(b, 1);
+    return a.filter((x) => bMap[x] === 1);
+};
+export const arrayIntersection = (a, b, getKey) => {
+    if (!a.length || !b.length)
+        return [];
+    const bMap = arrayToMap(b, getKey);
+    return a.filter((x) => getKey(x) in bMap);
+};
+export const arrayToKeys = (list, map) => {
+    const obj = {};
+    for (let i = 0, il = list.length; i < il; i += 1) {
+        const item = list[i];
+        obj[item] = map(item, i, list);
+    }
+    return obj;
+};
+export const arrayMutate = (out, arr, mutate) => {
+    for (let i = 0, il = arr.length; i < il; i += 1) {
+        mutate(out, arr[i], i, arr);
+    }
+    return out;
+};
