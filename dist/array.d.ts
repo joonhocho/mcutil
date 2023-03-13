@@ -1,4 +1,4 @@
-export type KeyType = string | number | boolean | null | undefined;
+import { KeyType } from './types/types.js';
 export declare const addItem: <T>(arr: T[], item: T) => boolean;
 export declare const removeItem: <T>(arr: T[], item: T) => number;
 export declare const replaceItem: <T>(arr: T[], oldItem: T, newItem: T, pushIfNotFound?: boolean) => number;

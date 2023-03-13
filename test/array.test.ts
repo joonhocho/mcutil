@@ -16,7 +16,7 @@ import {
   removeItem,
   replaceItem,
   withoutNil,
-} from '../src/array';
+} from '../src/array.js';
 
 test('addItem', () => {
   const a = [1, 3, 5];

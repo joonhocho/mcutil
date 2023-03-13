@@ -1,4 +1,4 @@
-export type KeyType = string | number | boolean | null | undefined;
+import { KeyType } from './types/types.js';
 
 export const addItem = <T>(arr: T[], item: T): boolean => {
   if (arr.indexOf(item) === -1) {
