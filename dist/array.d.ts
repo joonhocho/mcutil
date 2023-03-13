@@ -1,0 +1,22 @@
+type KeyType = string | number | boolean | null | undefined;
+declare const addItem: <T>(arr: T[], item: T) => boolean;
+declare const removeItem: <T>(arr: T[], item: T) => number;
+declare const replaceItem: <T>(arr: T[], oldItem: T, newItem: T, pushIfNotFound?: boolean) => number;
+declare const withoutNil: <T>(arr: T[]) => T[];
+declare const arraysEqual: <T>(a1: T[], a2: T[], itemsEqual?: (a: T, b: T) => boolean) => boolean;
+declare const dedup: <T>(arr: T[], toId: (item: T) => KeyType) => T[];
+declare const dedupKeys: <T extends KeyType>(arr: T[]) => T[];
+declare const findLast: <T>(arr: T[], predicate: (item: T, index: number, list: T[]) => any) => T;
+declare const findLastIndex: <T>(arr: T[], predicate: (item: T, index: number, list: T[]) => any) => number;
+declare const emptyToNull: <T>(arr: T[]) => T[];
+declare const moveItem: <T>(arr: T[], index: number, delta: number) => T[];
+declare const keysToMap: <T extends KeyType, V>(arr: T[], val: V) => Record<string, V>;
+declare const arrayToMap: <T>(arr: T[], getKey: (item: T) => string | number) => Record<string, T>;
+declare const keysSubtract: <T extends KeyType>(a: T[], b: T[]) => T[];
+declare const arraySubtract: <T>(a: T[], b: T[], getKey: (item: T) => string | number) => T[];
+declare const keysIntersection: <T extends KeyType>(a: T[], b: T[]) => T[];
+declare const arrayIntersection: <T>(a: T[], b: T[], getKey: (item: T) => string | number) => T[];
+declare const arrayToKeys: <T extends KeyType, V>(list: T[], map: (item: T, index: number, list: T[]) => V) => Record<string, V>;
+declare const arrayMutate: <Out, T>(out: Out, arr: T[], mutate: (out: Out, item: T, index: number, list: T[]) => void) => Out;
+
+export { KeyType, addItem, arrayIntersection, arrayMutate, arraySubtract, arrayToKeys, arrayToMap, arraysEqual, dedup, dedupKeys, emptyToNull, findLast, findLastIndex, keysIntersection, keysSubtract, keysToMap, moveItem, removeItem, replaceItem, withoutNil };
