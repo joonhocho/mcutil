@@ -914,7 +914,7 @@ export class BaseSmartState<
   }
 }
 
-interface IEmptyInterface {}
+export interface IEmptyInterface {}
 
 export function defineSmartState<
   Props extends IEmptyInterface = IEmptyInterface,
