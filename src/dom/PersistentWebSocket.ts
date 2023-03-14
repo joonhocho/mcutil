@@ -94,7 +94,7 @@ export class PersistentWebSocket<
       switch (status) {
         case 'closed':
         case 'error':
-        case 'timeout':
+        case 'timedout':
           this.close();
           break;
       }
@@ -330,7 +330,7 @@ export class PersistentWebSocket<
 
   protected _handleTimeout = (...args: any) => {
     this._clearTimeoutTimer();
-    this.state.status = 'timeout';
+    this.state.status = 'timedout';
     this.emit('timeout', ...args);
   };
 }

@@ -17,7 +17,7 @@ export type PersistentWebSocketStatus =
   | 'closing'
   | 'closed'
   | 'destroyed'
-  | 'timeout';
+  | 'timedout';
 
 export interface IPersistentWebSocketStateProps {
   ws: IsomorphicWebSocket | null;
