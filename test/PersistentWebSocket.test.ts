@@ -1,10 +1,10 @@
 import { expect, jest, test } from '@jest/globals';
 import { EventEmitter } from '../src/class/EventEmitter';
-import { IPersistentWebSocketStateProps } from '../src/class/PersistentWebSocketState';
 import {
   IsomorphicWebSocket,
   PersistentWebSocket,
-} from '../src/dom/PersistentWebSocket';
+} from '../src/class/PersistentWebSocket';
+import { IPersistentWebSocketStateProps } from '../src/class/PersistentWebSocketState';
 
 jest.useFakeTimers();
 jest.spyOn(global, 'setTimeout');

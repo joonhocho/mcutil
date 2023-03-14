@@ -1,14 +1,14 @@
+import { AnyFunction, KeyOf } from '../types/types.js';
 import {
   EventEmitter,
   EventEmitterHandler,
   IEventMap,
-} from '../class/EventEmitter.js';
+} from './EventEmitter.js';
 import {
   IPersistentWebSocketStateProps,
   PersistentWebSocketState,
   getWebSocketReadyState,
-} from '../class/PersistentWebSocketState.js';
-import { AnyFunction, KeyOf } from '../types/types.js';
+} from './PersistentWebSocketState.js';
 
 import type { WebSocket as NodeWebSocket } from 'ws';
 export type BrowserWebSocket = WebSocket;
