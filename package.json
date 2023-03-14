@@ -25,7 +25,7 @@
   "homepage": "https://github.com/joonhocho/mcutil#readme",
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.4.0",
+    "@types/jest": "^29.4.1",
     "@types/lodash": "^4.14.191",
     "@types/lodash.debounce": "^4.0.7",
     "@types/react": "^18.0.28",
