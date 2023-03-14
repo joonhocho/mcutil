@@ -6,7 +6,7 @@ export interface IValueOptions<T> {
   normalize?: (x: T) => T;
 }
 
-export class Value<T> extends PubSub<(value: T, prev: T) => void> {
+export class Value<T> extends PubSub<[T, T]> {
   valid?: (x: T) => boolean;
   equal?: (a: T, b: T) => boolean;
   normalize?: (x: T) => T;

@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { PubSub } from '../class/PubSub.js';
+import { PubSub, PubSubHandler } from '../class/PubSub.js';
 
-export const useSubscriber = <Handler extends (...args: any[]) => any>(
-  v: PubSub<Handler>,
-  handler: Handler,
+export const useSubscriber = <Params extends any[]>(
+  v: PubSub<Params>,
+  handler: PubSubHandler<Params>,
   deps: any[] = [v]
   // eslint-disable-next-line react-hooks/exhaustive-deps
 ) => useEffect(() => v.on(handler), deps);

@@ -1,35 +1,42 @@
 import { BaseSmartState, SmartState, defineSmartState } from './SmartState.js';
 
+import type { WebSocket as NodeWebSocket } from 'ws';
+
+export type BrowserWebSocket = WebSocket;
+
+export type IsomorphicWebSocket = BrowserWebSocket | NodeWebSocket;
+
+export type WebSocketEventType = keyof WebSocketEventMap;
+
 export type PersistentWebSocketStatus =
   | 'initialized'
   | 'connecting'
-  | 'connected'
+  | 'open'
   | 'reconnecting'
   | 'error'
+  | 'closing'
   | 'closed'
   | 'destroyed'
   | 'timeout';
 
 export interface IPersistentWebSocketStateProps {
+  ws: IsomorphicWebSocket | null;
   status: PersistentWebSocketStatus;
   shouldReconnect: boolean;
   canConnect: boolean;
   canReconnect: boolean;
-  urls: string[];
-  urlIndex: number;
-  url: string | undefined;
   delay0: number;
   delay: number;
   delayMin: number;
   delayMax: number;
   retryCount: number;
   maxRetryCount: number;
+  timeoutDelay: number;
 }
 
 export type PersistentWebSocketStateComputedKeys =
   | 'canConnect'
-  | 'canReconnect'
-  | 'url';
+  | 'canReconnect';
 
 export interface IPersistentWebSocketStateJSON
   extends Omit<
@@ -40,6 +47,22 @@ export interface IPersistentWebSocketStateJSON
 export interface IPersistentWebSocketStateMethods {}
 
 export interface IPersistentWebSocketStateConfig {}
+
+export const getWebSocketReadyState = (
+  ws: IsomorphicWebSocket
+): 'closed' | 'closing' | 'connecting' | 'open' | null => {
+  switch (ws.readyState) {
+    case ws.CLOSED:
+      return 'closed';
+    case ws.CLOSING:
+      return 'closing';
+    case ws.CONNECTING:
+      return 'connecting';
+    case ws.OPEN:
+      return 'open';
+  }
+  return null;
+};
 
 export const PersistentWebSocketState = defineSmartState<
   IPersistentWebSocketStateProps,
@@ -54,26 +77,18 @@ export const PersistentWebSocketState = defineSmartState<
         new PersistentWebSocketState(json.state, json.config),
     },
     properties: {
+      ws: {
+        type: 'object',
+        toJSON: false,
+        didSet(next, prev, draft) {
+          if (next) draft.status = getWebSocketReadyState(next) || 'connecting';
+        },
+      },
       status: {
         type: 'string',
       },
       shouldReconnect: {
         type: 'boolean',
-      },
-      urls: {
-        type: 'array',
-        item: 'string',
-        willSet(next, prev, draft) {
-          if (next != null) {
-            draft.urlIndex = next.length ? draft.urlIndex % next.length : 0;
-          }
-        },
-      },
-      urlIndex: {
-        type: 'number',
-        normalize(next, prev, { urls }) {
-          return urls.length ? next % urls.length : 0;
-        },
       },
       delay0: {
         type: 'number',
@@ -128,41 +143,29 @@ export const PersistentWebSocketState = defineSmartState<
       maxRetryCount: {
         type: 'number',
       },
+      timeoutDelay: {
+        type: 'number',
+      },
     },
     computed: {
-      url: {
-        type: 'string',
-        nullable: true,
-        deps: ['urls', 'urlIndex'],
-        get({ urls, urlIndex }) {
-          return urls[urlIndex];
-        },
-      },
       canConnect: {
         type: 'boolean',
-        deps: ['status', 'url'],
-        get({ status, url }) {
+        deps: ['status'],
+        get({ status }) {
           return (
-            (status === 'closed' ||
-              status === 'error' ||
-              status === 'initialized') &&
-            url != null &&
-            url.length > 0
+            status !== 'connecting' &&
+            status !== 'open' &&
+            status !== 'reconnecting' &&
+            status !== 'closing' &&
+            status !== 'destroyed'
           );
         },
       },
       canReconnect: {
         type: 'boolean',
-        deps: ['status', 'retryCount', 'maxRetryCount', 'url'],
-        get({ status, retryCount, maxRetryCount, url }) {
-          return (
-            retryCount <= maxRetryCount &&
-            (status === 'closed' ||
-              status === 'error' ||
-              status === 'initialized') &&
-            url != null &&
-            url.length > 0
-          );
+        deps: ['retryCount', 'maxRetryCount', 'canConnect'],
+        get({ retryCount, maxRetryCount, canConnect }) {
+          return retryCount <= maxRetryCount && !!canConnect;
         },
       },
     },

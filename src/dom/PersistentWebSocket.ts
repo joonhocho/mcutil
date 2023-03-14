@@ -1,62 +1,89 @@
-import { findLastIndex } from '../array.js';
+import {
+  EventEmitter,
+  EventEmitterHandler,
+  IEventMap,
+} from '../class/EventEmitter.js';
 import {
   IPersistentWebSocketStateProps,
   PersistentWebSocketState,
+  getWebSocketReadyState,
 } from '../class/PersistentWebSocketState.js';
+import { AnyFunction, KeyOf } from '../types/types.js';
 
-export type WebSocketEventType = keyof WebSocketEventMap;
+import type { WebSocket as NodeWebSocket } from 'ws';
+export type BrowserWebSocket = WebSocket;
+
+export type IsomorphicWebSocket = BrowserWebSocket | NodeWebSocket;
+
+export type WebSocketEventType = KeyOf<WebSocketEventMap>;
 
 export type WebSocketListener<K extends WebSocketEventType> = (
   this: WebSocket,
   ev: WebSocketEventMap[K]
 ) => any;
 
-export interface IPersistentWebSocketConfig
+export interface IPersistentWebSocketConfig<WS extends IsomorphicWebSocket>
   extends Partial<
     Pick<
       IPersistentWebSocketStateProps,
-      'shouldReconnect' | 'urls' | 'urlIndex' | 'delay0' | 'maxRetryCount'
+      'shouldReconnect' | 'delay0' | 'maxRetryCount' | 'timeoutDelay'
     >
   > {
-  urls: string[]; // required
-  autoConnect?: boolean;
+  createWebSocket(): WS;
+  noAutoConnect?: boolean;
   getNextDelay?: (prevDelay: number, retries: number) => number;
 }
 
 const defaultGetNextDelay = (d: number) => 1.5 * d;
 
-export class PersistentWebSocket {
-  ws: WebSocket | null = null;
+const DEFAULT_EVENTS: Record<WebSocketEventType, 1> = {
+  close: 1,
+  error: 1,
+  message: 1,
+  open: 1,
+};
+
+export class PersistentWebSocket<
+  WS extends IsomorphicWebSocket,
+  EventMap extends IEventMap
+> extends EventEmitter<EventMap> {
+  _createWebSocket: () => WS;
 
   getNextDelay: (prevDelay: number, retries: number) => number;
 
   state: PersistentWebSocketState;
 
-  protected _listeners: Array<{
-    type: WebSocketEventType;
-    listener: WebSocketListener<WebSocketEventType>;
-  }> = [];
+  protected _handlers: {
+    [key in KeyOf<EventMap>]?: (...args: any) => void;
+  };
 
-  protected _queueId: number | null = null;
+  protected _reconnectTimer: NodeJS.Timer | null = null;
+  protected _timeoutTimer: NodeJS.Timer | null = null;
 
   constructor({
-    autoConnect = true,
+    createWebSocket,
+    noAutoConnect = false,
     getNextDelay = defaultGetNextDelay,
+    timeoutDelay = 0,
     ...initialState
-  }: IPersistentWebSocketConfig) {
+  }: IPersistentWebSocketConfig<WS>) {
+    super();
+
+    this._createWebSocket = createWebSocket;
     this.getNextDelay = getNextDelay;
 
     this.state = new PersistentWebSocketState(
       {
+        ws: null,
         status: 'initialized',
         shouldReconnect: true,
-        urlIndex: 0,
         delay0: 100,
         delay: 100,
         delayMin: 100,
         delayMax: (60 * 1000) / 5,
         retryCount: 0,
         maxRetryCount: Infinity,
+        timeoutDelay,
         ...initialState,
       },
       {}
@@ -82,170 +109,175 @@ export class PersistentWebSocket {
       }
     );
 
-    if (autoConnect) {
+    this._handlers = {
+      open: this._handleOpen,
+      message: this._handleMessage,
+      close: this._handleClose,
+      error: this._handleError,
+    };
+
+    if (!noAutoConnect) {
       this.connect();
     }
   }
 
   destroy() {
-    this._clearQueue();
+    this._clearTimeoutTimer();
+    this._clearReconnectTimer();
 
     this.close();
-    this.clearListeners();
+    // this._removeListeners();
 
+    this._handlers = {};
     this.state.status = 'destroyed';
-
     this.state.$destroy();
   }
 
-  clearListeners() {
-    const { ws, _listeners } = this;
-    if (ws) {
-      for (let i = 0, il = _listeners.length; i < il; i += 1) {
-        const item = _listeners[i];
-        ws.removeEventListener(item.type, item.listener);
-      }
+  on<Type extends KeyOf<EventMap>>(
+    type: Type,
+    fn: EventEmitterHandler<EventMap[Type]>
+  ): () => void {
+    if (!this._handlers[type]) {
+      const handler = (...args: any) => {
+        this.emit(type, ...args);
+      };
+
+      this._handlers[type] = handler;
+
+      (this.state.ws as BrowserWebSocket)?.addEventListener(type, handler);
     }
-    _listeners.length = 0;
+    return super.on(type, fn);
+  }
+
+  once<Type extends KeyOf<EventMap>>(
+    type: Type,
+    fn: EventEmitterHandler<EventMap[Type]>
+  ): () => void {
+    if (!this._handlers[type]) {
+      const handler = (...args: any) => {
+        this.emit(type, ...args);
+      };
+
+      this._handlers[type] = handler;
+
+      (this.state.ws as BrowserWebSocket)?.addEventListener(type, handler);
+    }
+    return super.once(type, fn);
+  }
+
+  protected _addListeners(ws = this.state.ws) {
+    if (ws == null) return;
+
+    const events = this._handlers;
+    for (const type in events) {
+      const fn = events[type];
+      if (fn) (ws as BrowserWebSocket).addEventListener(type, fn);
+    }
+  }
+
+  protected _removeListeners(ws = this.state.ws) {
+    if (ws == null) return;
+
+    const events = this._handlers;
+    for (const type in events) {
+      const fn = events[type];
+      if (fn) (ws as BrowserWebSocket).removeEventListener(type, fn);
+    }
+  }
+
+  protected _initWebSocket() {
+    try {
+      this._clearTimeoutTimer();
+
+      const ws = this._createWebSocket();
+      this.state.ws = ws;
+
+      this._addListeners(ws);
+
+      const { timeoutDelay } = this.state;
+      if (timeoutDelay > 0) {
+        this._timeoutTimer = setTimeout(this._handleTimeout, timeoutDelay);
+      }
+    } catch (e) {
+      this.state.status = 'error';
+    }
   }
 
   close(code?: number, reason?: string): void {
-    const { ws, _listeners } = this;
+    const { ws } = this.state;
     if (ws == null) return;
 
-    this.ws = null;
+    this._clearTimeoutTimer();
+    this.state.$set({ ws: null, status: 'closing' });
 
     try {
-      ws.close(code, reason);
+      const status = getWebSocketReadyState(ws);
+      if (!(status === 'closed' || status === 'closing')) {
+        ws.close(code, reason);
+      }
     } catch (e) {
       // ??? ignore
       console.error(e);
     }
 
+    this._removeListeners(ws);
+
     this.state.status = 'closed';
-
-    ws.removeEventListener('open', this._handleOpen);
-    ws.removeEventListener('close', this._handleClose);
-    ws.removeEventListener('error', this._handleError);
-
-    if (ws) {
-      for (let i = 0, il = _listeners.length; i < il; i += 1) {
-        const item = _listeners[i];
-        ws.removeEventListener(item.type, item.listener);
-      }
-    }
   }
 
-  protected _addListeners() {
-    const { ws, _listeners } = this;
-    if (ws == null) return;
+  connect(): boolean {
+    this._clearTimeoutTimer();
+    this._clearReconnectTimer();
 
-    ws.addEventListener('open', this._handleOpen);
-    ws.addEventListener('close', this._handleClose);
-    ws.addEventListener('error', this._handleError);
-
-    if (ws) {
-      for (let i = 0, il = _listeners.length; i < il; i += 1) {
-        const item = _listeners[i];
-        ws.addEventListener(item.type, item.listener);
-      }
-    }
-  }
-
-  protected _createWebSocket(url: string) {
-    try {
-      const ws = new WebSocket(url);
-      this.ws = ws;
-
-      this._addListeners();
-    } catch (e) {
-      this.state.status = 'error';
-    }
-  }
-
-  connect(): void {
-    this._clearQueue();
-
-    if (!this.state.canConnect) return;
-
-    const { url } = this.state;
-    if (!url) return;
+    if (!this.state.canConnect) return false;
 
     this.state.status = 'connecting';
 
-    this._createWebSocket(url);
+    this._initWebSocket();
+
+    return true;
   }
 
-  reconnect(force = true) {
-    this._clearQueue();
+  reconnect(force = true): boolean {
+    this._clearTimeoutTimer();
+    this._clearReconnectTimer();
     this.close();
 
-    if (!force && !this.state.shouldReconnect) return;
+    if (!force && !this.state.shouldReconnect) return false;
 
     this.state.$update((prev) => ({
       retryCount: prev.retryCount + 1,
-      urlIndex: prev.urlIndex + 1,
     }));
 
-    if (!this.state.canConnect) return;
-
-    const { url } = this.state;
-    if (!url) return;
+    if (!this.state.canConnect) return false;
 
     this.state.status = 'reconnecting';
 
-    this._createWebSocket(url);
+    this._initWebSocket();
+
+    return true;
   }
 
-  on<K extends WebSocketEventType>(
-    type: K,
-    listener: WebSocketListener<K>
-  ): VoidFunction {
-    this._listeners.push({
-      type,
-      listener: listener as WebSocketListener<WebSocketEventType>,
-    });
-    this.ws?.addEventListener(type, listener);
-
-    return this.off.bind(
-      this,
-      type,
-      listener as WebSocketListener<WebSocketEventType>
-    );
+  send(...data: any): void {
+    (this.state.ws?.send as AnyFunction)(...data);
   }
 
-  off<K extends WebSocketEventType>(
-    type: K,
-    listener: WebSocketListener<K>
-  ): void {
-    const index = findLastIndex(
-      this._listeners,
-      (item) => item.type === type && item.listener === listener
-    );
-    if (index !== -1) {
-      this._listeners.splice(index, 1);
-    }
-
-    this.ws?.removeEventListener(type, listener);
-  }
-
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
-    try {
-      return this.ws?.send(data);
-    } catch (e) {
-      this.state.status = 'error';
+  protected _clearTimeoutTimer() {
+    if (this._timeoutTimer != null) {
+      clearTimeout(this._timeoutTimer);
+      this._timeoutTimer = null;
     }
   }
 
-  protected _clearQueue() {
-    if (this._queueId != null) {
-      clearTimeout(this._queueId);
-      this._queueId = null;
+  protected _clearReconnectTimer() {
+    if (this._reconnectTimer != null) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
     }
   }
 
   protected _queueReconnect() {
-    if (this._queueId != null || !this.state.canReconnect) return;
+    if (this._reconnectTimer != null || !this.state.canReconnect) return;
 
     const { delay } = this.state;
 
@@ -253,28 +285,52 @@ export class PersistentWebSocket {
       Math.round(this.getNextDelay(delay, prev.retryCount))
     );
 
-    this._queueId = setTimeout(() => this.reconnect(false), delay);
+    this._reconnectTimer = setTimeout(() => this.reconnect(false), delay);
   }
 
-  protected _handleOpen = (e: Event) => {
-    this._clearQueue();
+  protected _handleOpen = (...args: any) => {
+    this._clearTimeoutTimer();
+    this._clearReconnectTimer();
 
     this.state.$update((prev) => ({
-      status: 'connected',
+      status: 'open',
       retryCount: 0,
       delay: prev.delay0,
     }));
+
+    this.emit('open', ...args);
   };
 
-  protected _handleClose = (e: CloseEvent) => {
+  protected _handleMessage = (...args: any) => {
+    if (this.state.status !== 'open') {
+      this._clearTimeoutTimer();
+      this._clearReconnectTimer();
+
+      this.state.$update((prev) => ({
+        status: 'open',
+        retryCount: 0,
+        delay: prev.delay0,
+      }));
+    }
+
+    this.emit('message', ...args);
+  };
+
+  protected _handleClose = (...args: any) => {
+    this._clearTimeoutTimer();
     this.state.status = 'closed';
+    this.emit('closed', ...args);
   };
 
-  protected _handleError = (e: Event) => {
+  protected _handleError = (...args: any) => {
+    this._clearTimeoutTimer();
     this.state.status = 'error';
+    this.emit('error', ...args);
   };
 
-  protected _handleTimeout = (e: Event) => {
-    this.state.status = 'error';
+  protected _handleTimeout = (...args: any) => {
+    this._clearTimeoutTimer();
+    this.state.status = 'timeout';
+    this.emit('timeout', ...args);
   };
 }
