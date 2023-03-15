@@ -1,7 +1,5 @@
-import debounce from 'lodash.debounce';
+import { Debounce } from '../class/Debounce.js';
 import { IValueOptions, Value } from '../class/Value.js';
-
-import type { DebouncedFunc } from 'lodash';
 
 export interface ILocalStorageItemConfig<T> extends IValueOptions<T> {
   initialValue: T;
@@ -20,7 +18,7 @@ export class LocalStorageItem<T> extends Value<T> {
   serialize: (data: T) => string;
   deserialize: (str: string) => T;
 
-  saveDebounced: DebouncedFunc<VoidFunction>;
+  saveDebounced: Debounce<VoidFunction>;
 
   constructor({
     key,
@@ -40,12 +38,12 @@ export class LocalStorageItem<T> extends Value<T> {
     this.serialize = serialize;
     this.deserialize = deserialize;
 
-    this.saveDebounced = debounce(() => {
+    this.saveDebounced = new Debounce(() => {
       this.save(this.value);
     }, autoSaveDelay);
 
     if (!noAutoSave) {
-      this.on(this.saveDebounced);
+      this.on(this.saveDebounced.debounced);
     }
 
     if (initialValue == null) {
@@ -57,13 +55,13 @@ export class LocalStorageItem<T> extends Value<T> {
       }
     } else {
       if (!noAutoSave) {
-        this.saveDebounced();
+        this.saveDebounced.debounced();
       }
     }
   }
 
   destroy() {
-    this.saveDebounced.flush();
+    this.saveDebounced.destroy();
     super.destroy();
   }
 
