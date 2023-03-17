@@ -5,7 +5,7 @@ jest.useFakeTimers();
 
 describe('TimeoutMap', () => {
   test('TimeoutMap', async () => {
-    const map = new TimeoutMap();
+    const map = new TimeoutMap<'a' | 'b'>();
 
     const fns = new Array(10).fill(0).map(() => jest.fn());
 

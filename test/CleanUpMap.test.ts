@@ -3,7 +3,7 @@ import { CleanUpMap } from '../src/class/CleanUpMap';
 
 describe('CleanUpMap', () => {
   test('CleanUpMap', async () => {
-    const map = new CleanUpMap();
+    const map = new CleanUpMap<'a' | 'b' | 'c'>();
 
     const fns = new Array(10).fill(0).map(() => jest.fn());
 

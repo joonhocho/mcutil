@@ -9,6 +9,7 @@ import {
   PersistentWebSocketState,
   getWebSocketReadyState,
 } from './PersistentWebSocketState.js';
+import { TimeoutMap } from './TimeoutMap.js';
 
 import type { WebSocket as NodeWebSocket } from 'ws';
 export type BrowserWebSocket = WebSocket;
@@ -56,6 +57,8 @@ export class PersistentWebSocket<
   protected _handlers: {
     [key in KeyOf<EventMap>]?: (...args: any) => void;
   };
+
+  protected _timeouts = new TimeoutMap<'timeout' | 'reconnect'>();
 
   protected _reconnectTimer: NodeJS.Timer | null = null;
   protected _timeoutTimer: NodeJS.Timer | null = null;
@@ -122,8 +125,7 @@ export class PersistentWebSocket<
   }
 
   destroy() {
-    this._clearTimeoutTimer();
-    this._clearReconnectTimer();
+    this._timeouts.destroy();
 
     this.close();
     // this._removeListeners();
@@ -187,7 +189,7 @@ export class PersistentWebSocket<
 
   protected _initWebSocket() {
     try {
-      this._clearTimeoutTimer();
+      this._timeouts.clear('timeout');
 
       const ws = this._createWebSocket();
       this.state.ws = ws;
@@ -196,7 +198,7 @@ export class PersistentWebSocket<
 
       const { timeoutDelay } = this.state;
       if (timeoutDelay > 0) {
-        this._timeoutTimer = setTimeout(this._handleTimeout, timeoutDelay);
+        this._timeouts.set('timeout', this._handleTimeout, timeoutDelay);
       }
     } catch (e) {
       this.state.status = 'error';
@@ -207,7 +209,7 @@ export class PersistentWebSocket<
     const { ws } = this.state;
     if (ws == null) return;
 
-    this._clearTimeoutTimer();
+    this._timeouts.clear('timeout');
     this.state.$set({ ws: null, status: 'closing' });
 
     try {
@@ -226,8 +228,8 @@ export class PersistentWebSocket<
   }
 
   connect(): boolean {
-    this._clearTimeoutTimer();
-    this._clearReconnectTimer();
+    this._timeouts.clear('timeout');
+    this._timeouts.clear('reconnect');
 
     if (!this.state.canConnect) return false;
 
@@ -239,8 +241,8 @@ export class PersistentWebSocket<
   }
 
   reconnect(force = true): boolean {
-    this._clearTimeoutTimer();
-    this._clearReconnectTimer();
+    this._timeouts.clear('timeout');
+    this._timeouts.clear('reconnect');
     this.close();
 
     if (!force && !this.state.shouldReconnect) return false;
@@ -262,20 +264,6 @@ export class PersistentWebSocket<
     (this.state.ws?.send as AnyFunction)(...data);
   }
 
-  protected _clearTimeoutTimer() {
-    if (this._timeoutTimer != null) {
-      clearTimeout(this._timeoutTimer);
-      this._timeoutTimer = null;
-    }
-  }
-
-  protected _clearReconnectTimer() {
-    if (this._reconnectTimer != null) {
-      clearTimeout(this._reconnectTimer);
-      this._reconnectTimer = null;
-    }
-  }
-
   protected _queueReconnect() {
     if (this._reconnectTimer != null || !this.state.canReconnect) return;
 
@@ -285,12 +273,12 @@ export class PersistentWebSocket<
       Math.round(this.getNextDelay(delay, prev.retryCount))
     );
 
-    this._reconnectTimer = setTimeout(() => this.reconnect(false), delay);
+    this._timeouts.set('reconnect', () => this.reconnect(false), delay);
   }
 
   protected _handleOpen = (...args: any) => {
-    this._clearTimeoutTimer();
-    this._clearReconnectTimer();
+    this._timeouts.clear('timeout');
+    this._timeouts.clear('reconnect');
 
     this.state.$update((prev) => ({
       status: 'open',
@@ -303,8 +291,8 @@ export class PersistentWebSocket<
 
   protected _handleMessage = (...args: any) => {
     if (this.state.status !== 'open') {
-      this._clearTimeoutTimer();
-      this._clearReconnectTimer();
+      this._timeouts.clear('timeout');
+      this._timeouts.clear('reconnect');
 
       this.state.$update((prev) => ({
         status: 'open',
@@ -317,19 +305,19 @@ export class PersistentWebSocket<
   };
 
   protected _handleClose = (...args: any) => {
-    this._clearTimeoutTimer();
+    this._timeouts.clear('timeout');
     this.state.status = 'closed';
     this.emit('closed', ...args);
   };
 
   protected _handleError = (...args: any) => {
-    this._clearTimeoutTimer();
+    this._timeouts.clear('timeout');
     this.state.status = 'error';
     this.emit('error', ...args);
   };
 
   protected _handleTimeout = (...args: any) => {
-    this._clearTimeoutTimer();
+    this._timeouts.clear('timeout');
     this.state.status = 'timedout';
     this.emit('timeout', ...args);
   };

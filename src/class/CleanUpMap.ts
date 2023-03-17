@@ -1,11 +1,11 @@
-export class CleanUpMap {
-  protected _map: Map<string, VoidFunction[]> = new Map();
+export class CleanUpMap<Keys extends string = string> {
+  protected _map: Map<Keys, VoidFunction[]> = new Map();
 
   destroy() {
     this.clearAll();
   }
 
-  add(key: string, fn: VoidFunction | VoidFunction[]): void {
+  add(key: Keys, fn: VoidFunction | VoidFunction[]): void {
     const fns = typeof fn === 'function' ? [fn] : fn.slice();
     if (!fns.length) return;
 
@@ -18,12 +18,12 @@ export class CleanUpMap {
     }
   }
 
-  set(key: string, fn: VoidFunction | VoidFunction[]): void {
+  set(key: Keys, fn: VoidFunction | VoidFunction[]): void {
     this.clear(key);
     this.add(key, fn);
   }
 
-  clear(...keys: string[]): void {
+  clear(...keys: Keys[]): void {
     const { _map } = this;
     for (let ki = 0, kl = keys.length; ki < kl; ki += 1) {
       const key = keys[ki];

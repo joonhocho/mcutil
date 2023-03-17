@@ -2,14 +2,14 @@ import { removeItem } from '../array.js';
 
 export type Timeout = NodeJS.Timeout;
 
-export class TimeoutMap {
-  protected _map: Map<string, Timeout[]> = new Map();
+export class TimeoutMap<Keys extends string = string> {
+  protected _map: Map<Keys, Timeout[]> = new Map();
 
   destroy() {
     this.clearAll();
   }
 
-  add(key: string, fn: VoidFunction, delay: number): Timeout {
+  add(key: Keys, fn: VoidFunction, delay: number): Timeout {
     const timeout = setTimeout(() => {
       this.remove(key, timeout);
       fn();
@@ -26,19 +26,19 @@ export class TimeoutMap {
     return timeout;
   }
 
-  set(key: string, fn: VoidFunction, delay: number): Timeout {
+  set(key: Keys, fn: VoidFunction, delay: number): Timeout {
     this.clear(key);
     return this.add(key, fn, delay);
   }
 
-  remove(key: string, timeout: Timeout): void {
+  remove(key: Keys, timeout: Timeout): void {
     const timeouts = this._map.get(key);
     if (timeouts?.length) {
       removeItem(timeouts, timeout);
     }
   }
 
-  clear(key: string, timeout?: Timeout): void {
+  clear(key: Keys, timeout?: Timeout): void {
     if (timeout) {
       clearTimeout(timeout);
       this.remove(key, timeout);
