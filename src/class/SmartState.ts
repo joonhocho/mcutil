@@ -250,7 +250,7 @@ export class BaseSmartState<
   static fromJSON = (json: any) =>
     new BaseSmartState<any, any, any, any>(json.state, json.config);
 
-  protected _cleanup = new CleanUpMap();
+  $cleanup = new CleanUpMap();
 
   protected _state: Props;
   protected _draft: Props | null = null;
@@ -752,15 +752,15 @@ export class BaseSmartState<
   }
 
   $addOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
-    this._cleanup.add(key, fn);
+    if (fn) this.$cleanup.add(key, fn);
   }
 
   $setOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
-    this._cleanup.set(key, fn);
+    this.$cleanup.set(key, fn || []);
   }
 
   $clearOffMap(key: string) {
-    this._cleanup.clear(key);
+    this.$cleanup.clear(key);
   }
 
   $destroy() {
@@ -768,7 +768,7 @@ export class BaseSmartState<
     // this._draft = {} as any;
     // this._commitDraft();
 
-    this._cleanup.destroy();
+    this.$cleanup.destroy();
     this.$reset();
   }
 

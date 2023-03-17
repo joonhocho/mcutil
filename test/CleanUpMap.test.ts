@@ -58,13 +58,13 @@ describe('CleanUpMap', () => {
 
     expectCalls([0, 0, 0, 0, 0, 0]);
 
-    map.set('a', null);
+    map.set('a', []);
     expectCalls([1, 1, 0, 0, 0, 0]);
 
-    map.set('c', null);
+    map.set('c', []);
     expectCalls([0, 0, 0, 0, 0, 0]);
 
-    map.set('b', null);
+    map.set('b', []);
     expectCalls([0, 1, 1, 0, 0, 0]);
 
     map.clearAll();

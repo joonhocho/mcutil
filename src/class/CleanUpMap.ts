@@ -5,9 +5,7 @@ export class CleanUpMap {
     this.clearAll();
   }
 
-  add(key: string, fn: VoidFunction | VoidFunction[] | undefined | null): void {
-    if (fn == null) return;
-
+  add(key: string, fn: VoidFunction | VoidFunction[]): void {
     const fns = typeof fn === 'function' ? [fn] : fn.slice();
     if (!fns.length) return;
 
@@ -20,16 +18,19 @@ export class CleanUpMap {
     }
   }
 
-  set(key: string, fn: VoidFunction | VoidFunction[] | undefined | null): void {
+  set(key: string, fn: VoidFunction | VoidFunction[]): void {
     this.clear(key);
     this.add(key, fn);
   }
 
-  clear(key: string): void {
+  clear(...keys: string[]): void {
     const { _map } = this;
-    if (_map.has(key)) {
-      _map.get(key)?.forEach((fn) => fn());
-      _map.delete(key);
+    for (let ki = 0, kl = keys.length; ki < kl; ki += 1) {
+      const key = keys[ki];
+      if (_map.has(key)) {
+        _map.get(key)?.forEach((fn) => fn());
+        _map.delete(key);
+      }
     }
   }
 
