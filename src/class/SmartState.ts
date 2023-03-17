@@ -1,10 +1,10 @@
 import { removeItem } from '../array.js';
 import { objectHasKeyOfValue, objectKeys, objectMap } from '../object.js';
+import { CleanUpMap } from './CleanUpMap.js';
 
 import type { Value } from './Value.js';
 
 import type { KeyOf, VoidFunction } from '../types/types.js';
-
 export class PropertyNameConflictError extends Error {
   constructor(key: string) {
     super(`Property name conflict. name=${String(key)}`);
@@ -250,8 +250,7 @@ export class BaseSmartState<
   static fromJSON = (json: any) =>
     new BaseSmartState<any, any, any, any>(json.state, json.config);
 
-  protected _offMap: Record<string, VoidFunction | VoidFunction[] | undefined> =
-    {};
+  protected _cleanup = new CleanUpMap();
 
   protected _state: Props;
   protected _draft: Props | null = null;
@@ -753,35 +752,15 @@ export class BaseSmartState<
   }
 
   $addOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
-    if (fn == null) return;
-
-    const { _offMap } = this;
-    const off = _offMap[key];
-    if (typeof off === 'function') {
-      _offMap[key] = [off].concat(fn);
-    } else if (off != null) {
-      _offMap[key] = off.concat(fn);
-    } else {
-      _offMap[key] = fn;
-    }
+    this._cleanup.add(key, fn);
   }
 
   $setOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
-    this.$clearOffMap(key);
-    this._offMap[key] = fn;
+    this._cleanup.set(key, fn);
   }
 
   $clearOffMap(key: string) {
-    const { _offMap } = this;
-    const off = _offMap[key];
-    if (typeof off === 'function') {
-      off();
-    } else if (off != null) {
-      for (let i = 0, il = off.length; i < il; i += 1) {
-        off[i]();
-      }
-    }
-    delete _offMap[key];
+    this._cleanup.clear(key);
   }
 
   $destroy() {
@@ -789,12 +768,7 @@ export class BaseSmartState<
     // this._draft = {} as any;
     // this._commitDraft();
 
-    const { _offMap } = this;
-    Object.keys(_offMap).forEach((key) => {
-      this.$clearOffMap(key);
-    });
-    this._offMap = {};
-
+    this._cleanup.destroy();
     this.$reset();
   }
 
