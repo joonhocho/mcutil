@@ -9,6 +9,10 @@ export class TimeoutMap<Keys extends string = string> {
     this.clearAll();
   }
 
+  has(key: Keys): boolean {
+    return !!this._map.get(key)?.length;
+  }
+
   add(key: Keys, fn: VoidFunction, delay: number): Timeout {
     const timeout = setTimeout(() => {
       this.remove(key, timeout);

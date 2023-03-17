@@ -5,6 +5,10 @@ export class CleanUpMap<Keys extends string = string> {
     this.clearAll();
   }
 
+  has(key: Keys): boolean {
+    return !!this._map.get(key)?.length;
+  }
+
   add(key: Keys, fn: VoidFunction | VoidFunction[]): void {
     const fns = typeof fn === 'function' ? [fn] : fn.slice();
     if (!fns.length) return;

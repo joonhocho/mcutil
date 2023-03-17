@@ -61,7 +61,6 @@ export class PersistentWebSocket<
   protected _timeouts = new TimeoutMap<'timeout' | 'reconnect'>();
 
   protected _reconnectTimer: NodeJS.Timer | null = null;
-  protected _timeoutTimer: NodeJS.Timer | null = null;
 
   constructor({
     createWebSocket,
@@ -265,7 +264,7 @@ export class PersistentWebSocket<
   }
 
   protected _queueReconnect() {
-    if (this._reconnectTimer != null || !this.state.canReconnect) return;
+    if (this._timeouts.has('reconnect') || !this.state.canReconnect) return;
 
     const { delay } = this.state;
 
