@@ -27,9 +27,10 @@ export class CleanUpMap {
     const { _map } = this;
     for (let ki = 0, kl = keys.length; ki < kl; ki += 1) {
       const key = keys[ki];
-      if (_map.has(key)) {
-        _map.get(key)?.forEach((fn) => fn());
-        _map.delete(key);
+      const fns = _map.get(key);
+      if (fns?.length) {
+        fns.forEach((fn) => fn());
+        fns.length = 0;
       }
     }
   }
