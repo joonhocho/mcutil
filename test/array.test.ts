@@ -1,7 +1,9 @@
 import { expect, test } from '@jest/globals';
 import {
   addItem,
+  arrayFirstItem,
   arrayIntersection,
+  arrayLastItem,
   arraySubtract,
   arrayToKeys,
   arrayToMap,
@@ -17,6 +19,20 @@ import {
   replaceItem,
   withoutNil,
 } from '../src/array.js';
+
+test('arrayFirstItem', () => {
+  expect(arrayFirstItem([])).toEqual(undefined);
+  expect(arrayFirstItem([1])).toEqual(1);
+  expect(arrayFirstItem([1, 2])).toEqual(1);
+  expect(arrayFirstItem([2, 1, 8])).toEqual(2);
+});
+
+test('arrayLastItem', () => {
+  expect(arrayLastItem([])).toEqual(undefined);
+  expect(arrayLastItem([1])).toEqual(1);
+  expect(arrayLastItem([1, 2])).toEqual(2);
+  expect(arrayLastItem([2, 1, 8])).toEqual(8);
+});
 
 test('addItem', () => {
   const a = [1, 3, 5];
