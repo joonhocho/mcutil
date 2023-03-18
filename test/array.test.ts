@@ -2,10 +2,12 @@ import { describe, expect, test } from '@jest/globals';
 import {
   addItem,
   arrayFirstItem,
+  arrayIndexModulo,
   arrayIntersection,
   arrayLastItem,
   arraySliceLeft,
   arraySliceRight,
+  arraySplit,
   arraySubtract,
   arrayToKeys,
   arrayToMap,
@@ -83,6 +85,64 @@ describe('array', () => {
     expect(arraySliceRight([1, 2, 3], 2)).toEqual([2, 3]);
     expect(arraySliceRight([1, 2, 3], 3)).toEqual([1, 2, 3]);
     expect(arraySliceRight([1, 2, 3], 4)).toEqual([1, 2, 3]);
+  });
+
+  test('arrayIndexModulo', () => {
+    expect(arrayIndexModulo(0, 0)).toBe(-1);
+    expect(arrayIndexModulo(1, 0)).toBe(-1);
+    expect(arrayIndexModulo(-1, 0)).toBe(-1);
+
+    expect(arrayIndexModulo(-2, 1)).toBe(0);
+    expect(arrayIndexModulo(-1, 1)).toBe(0);
+    expect(arrayIndexModulo(0, 1)).toBe(0);
+    expect(arrayIndexModulo(1, 1)).toBe(0);
+    expect(arrayIndexModulo(2, 1)).toBe(0);
+
+    expect(arrayIndexModulo(-3, 2)).toBe(1);
+    expect(arrayIndexModulo(-2, 2)).toBe(0);
+    expect(arrayIndexModulo(-1, 2)).toBe(1);
+    expect(arrayIndexModulo(0, 2)).toBe(0);
+    expect(arrayIndexModulo(1, 2)).toBe(1);
+    expect(arrayIndexModulo(2, 2)).toBe(0);
+    expect(arrayIndexModulo(3, 2)).toBe(1);
+
+    expect(arrayIndexModulo(-6, 3)).toBe(0);
+    expect(arrayIndexModulo(-5, 3)).toBe(1);
+    expect(arrayIndexModulo(-4, 3)).toBe(2);
+    expect(arrayIndexModulo(-3, 3)).toBe(0);
+    expect(arrayIndexModulo(-2, 3)).toBe(1);
+    expect(arrayIndexModulo(-1, 3)).toBe(2);
+    expect(arrayIndexModulo(0, 3)).toBe(0);
+    expect(arrayIndexModulo(1, 3)).toBe(1);
+    expect(arrayIndexModulo(2, 3)).toBe(2);
+    expect(arrayIndexModulo(3, 3)).toBe(0);
+    expect(arrayIndexModulo(4, 3)).toBe(1);
+    expect(arrayIndexModulo(5, 3)).toBe(2);
+    expect(arrayIndexModulo(6, 3)).toBe(0);
+  });
+
+  test('arraySplit', () => {
+    expect(arraySplit([], -1)).toEqual([[], []]);
+    expect(arraySplit([], 0)).toEqual([[], []]);
+    expect(arraySplit([], 1)).toEqual([[], []]);
+
+    expect(arraySplit([1], -2)).toEqual([[], [1]]);
+    expect(arraySplit([1], -1)).toEqual([[], [1]]);
+    expect(arraySplit([1], 0)).toEqual([[], [1]]);
+    expect(arraySplit([1], 1)).toEqual([[1], []]);
+    expect(arraySplit([1], 2)).toEqual([[1], []]);
+
+    expect(arraySplit([1, 2, 3], -5)).toEqual([[], [1, 2, 3]]);
+    expect(arraySplit([1, 2, 3], -4)).toEqual([[], [1, 2, 3]]);
+    expect(arraySplit([1, 2, 3], -3)).toEqual([[], [1, 2, 3]]);
+    expect(arraySplit([1, 2, 3], -2)).toEqual([[1], [2, 3]]);
+    expect(arraySplit([1, 2, 3], -1)).toEqual([[1, 2], [3]]);
+    expect(arraySplit([1, 2, 3], 0)).toEqual([[], [1, 2, 3]]);
+    expect(arraySplit([1, 2, 3], 1)).toEqual([[1], [2, 3]]);
+    expect(arraySplit([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
+    expect(arraySplit([1, 2, 3], 3)).toEqual([[1, 2, 3], []]);
+    expect(arraySplit([1, 2, 3], 4)).toEqual([[1, 2, 3], []]);
+    expect(arraySplit([1, 2, 3], 5)).toEqual([[1, 2, 3], []]);
   });
 
   test('addItem', () => {

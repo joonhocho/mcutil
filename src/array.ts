@@ -19,6 +19,26 @@ export const arraySliceRight = <T>(arr: T[], count: number): T[] =>
     ? arr.slice()
     : arr.slice(arr.length - count);
 
+export const arrayIndexModulo = (index: number, length: number): number => {
+  if (length < 1) return -1;
+  const mod = index % length;
+  // check -0
+  return mod == 0 ? 0 : mod > 0 ? mod : length + mod;
+};
+
+export const arraySplit = <T>(arr: T[], index: number): [T[], T[]] => {
+  // index could be interpreted as length of left side array
+  const { length } = arr;
+
+  if (length < 1) return [[], []];
+
+  if (0 <= index) return [arr.slice(0, index), arr.slice(index)];
+
+  if (index <= -length) return [[], arr.slice()];
+
+  return [arr.slice(0, length + index), arr.slice(length + index)];
+};
+
 export const addItem = <T>(arr: T[], item: T): boolean => {
   if (arr.indexOf(item) === -1) {
     arr.push(item);
