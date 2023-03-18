@@ -5,6 +5,20 @@ export const arrayFirstItem = <T>(arr: T[]): T | undefined => arr[0];
 export const arrayLastItem = <T>(arr: T[]): T | undefined =>
   arr[arr.length - 1];
 
+export const arraySliceLeft = <T>(arr: T[], count: number): T[] =>
+  count < 1 || arr.length <= 0
+    ? []
+    : count >= arr.length
+    ? arr.slice()
+    : arr.slice(0, count);
+
+export const arraySliceRight = <T>(arr: T[], count: number): T[] =>
+  count < 1 || arr.length <= 0
+    ? []
+    : count >= arr.length
+    ? arr.slice()
+    : arr.slice(arr.length - count);
+
 export const addItem = <T>(arr: T[], item: T): boolean => {
   if (arr.indexOf(item) === -1) {
     arr.push(item);
