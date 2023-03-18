@@ -1,6 +1,6 @@
 {
   "name": "util-3gcvv",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "description": "",
   "type": "module",
   "module": "dist/index.js",
