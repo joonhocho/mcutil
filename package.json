@@ -10,6 +10,7 @@
     "pub": "node publish.js",
     "test": "jest",
     "test:cov": "jest --collect-coverage",
+    "test:cov:watch": "jest --collect-coverage --watch",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit"
   },

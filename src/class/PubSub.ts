@@ -33,10 +33,9 @@ export class PubSub<Params extends any[]> {
       this.off(wrapped);
       wrapped = null;
 
-      const res = fn(...args);
+      const cacheFn = fn;
       fn = null as any; // free memory just in case
-
-      return res;
+      return cacheFn(...args);
     };
 
     return this.on(wrapped);

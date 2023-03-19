@@ -46,8 +46,11 @@ export const useValueListeners = <T>(
 ) =>
   useEffect(() => {
     const offs = vs.map((v) => v.on(handler));
+
     return () => {
-      offs.forEach((x) => x());
+      for (let i = 0, il = offs.length; i < il; i += 1) {
+        offs[i]();
+      }
       offs.length = 0;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

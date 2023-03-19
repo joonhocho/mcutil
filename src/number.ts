@@ -17,3 +17,18 @@ export const parseNumber = (str: string | null | undefined): number | null => {
     return null;
   }
 };
+
+export const numberRange = (start: number, end: number, step = 1): number[] => {
+  const length = Math.ceil((end - start) / step);
+  if (length < 1) return [];
+
+  const arr: number[] = new Array(length);
+
+  let i = 0;
+  for (let n = start; n < end; n += step) {
+    arr[i] = n;
+    i += 1;
+  }
+
+  return arr;
+};

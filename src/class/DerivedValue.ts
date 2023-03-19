@@ -30,12 +30,18 @@ export class DerivedValue<T, Deps extends Array<any>> extends Value<T> {
     if (this._value) {
       this._value = undefined;
     }
+
     if (this._off) {
       this._off();
       this._off = undefined;
     }
-    this._offs.forEach((x) => x());
-    this._offs = [];
+
+    const { _offs } = this;
+    for (let i = 0, il = _offs.length; i < il; i += 1) {
+      _offs[i]();
+    }
+    this._offs.length = 0;
+
     super.destroy();
   }
 

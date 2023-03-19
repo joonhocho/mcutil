@@ -11,8 +11,6 @@ export class Value<T> extends PubSub<[T, T]> {
   equal?: (a: T, b: T) => boolean;
   normalize?: (x: T) => T;
 
-  protected _unsubs?: Array<[() => void, Value<any>]>;
-
   constructor(
     private _v: T,
     { valid, equal, normalize }: IValueOptions<T> = {}
@@ -32,40 +30,6 @@ export class Value<T> extends PubSub<[T, T]> {
 
   set value(v: T) {
     this.set(v);
-  }
-
-  destroy() {
-    this._unsubs?.forEach(([off]) => off());
-    this._unsubs = undefined;
-    super.destroy();
-  }
-
-  unsubAll() {
-    this._unsubs?.forEach(([off]) => off());
-  }
-
-  subTo<U>(val: Value<U>, map?: (v: U) => T) {
-    const fn = map
-      ? (x: U) => this.set(map(x))
-      : (v: U) => this.set(v as unknown as T);
-
-    const off = val.on(fn);
-
-    (this._unsubs || (this._unsubs = [])).push([off, val]);
-
-    fn(val.value);
-
-    return off;
-  }
-
-  unsubFrom(val: Value<T>) {
-    const index = this._unsubs
-      ? this._unsubs.findIndex((x) => x[1] === val)
-      : -1;
-    if (index !== -1) {
-      const [[off]] = this._unsubs!.splice(index, 1);
-      off();
-    }
   }
 
   get(): T {

@@ -1,10 +1,17 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   addItem,
+  arrayConcatInPlace,
+  arrayFilterInPlace,
   arrayFirstItem,
   arrayIndexModulo,
   arrayIntersection,
   arrayLastItem,
+  arrayMapInPlace,
+  arrayRemoveLastOneInPlace,
+  arrayRemoveManyInPlace,
+  arrayRemoveOneInPlace,
+  arraySliceInPlace,
   arraySliceLeft,
   arraySliceRight,
   arraySplit,
@@ -23,6 +30,7 @@ import {
   replaceItem,
   withoutNil,
 } from '../src/array.js';
+import { numberRange } from '../src/number';
 
 describe('array', () => {
   test('arrayFirstItem', () => {
@@ -352,5 +360,234 @@ describe('array', () => {
       3: '3,1',
       5: '5,2',
     });
+  });
+
+  test('arrayConcatInPlace', () => {
+    expect(arrayConcatInPlace([])).toEqual([]);
+    expect(arrayConcatInPlace([1])).toEqual([1]);
+    expect(arrayConcatInPlace([1, 2])).toEqual([1, 2]);
+
+    expect(arrayConcatInPlace([], [])).toEqual([]);
+    expect(arrayConcatInPlace([], [1])).toEqual([1]);
+    expect(arrayConcatInPlace([], [1], [2])).toEqual([1, 2]);
+    expect(arrayConcatInPlace([], [1], [2, 3])).toEqual([1, 2, 3]);
+    expect(arrayConcatInPlace([], [1, 2], [3, 4, 5])).toEqual([1, 2, 3, 4, 5]);
+
+    expect(arrayConcatInPlace([1], [], [])).toEqual([1]);
+    expect(arrayConcatInPlace([1], [1], [])).toEqual([1, 1]);
+    expect(arrayConcatInPlace([1], [1])).toEqual([1, 1]);
+    expect(arrayConcatInPlace([1, 2], [1], [2])).toEqual([1, 2, 1, 2]);
+    expect(arrayConcatInPlace([1, 3, 2], [1], [2, 3])).toEqual([
+      1, 3, 2, 1, 2, 3,
+    ]);
+  });
+
+  test('arraySliceInPlace', () => {
+    expect(arraySliceInPlace([])).toEqual([]);
+    expect(arraySliceInPlace([1])).toEqual([1]);
+    expect(arraySliceInPlace([1, 2])).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3])).toEqual([1, 2, 3]);
+
+    expect(arraySliceInPlace([], 0)).toEqual([]);
+    expect(arraySliceInPlace([1], 0)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], 0)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], 0)).toEqual([1, 2, 3]);
+
+    expect(arraySliceInPlace([], 1)).toEqual([]);
+    expect(arraySliceInPlace([1], 1)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], 1)).toEqual([2]);
+    expect(arraySliceInPlace([1, 2, 3], 1)).toEqual([2, 3]);
+
+    expect(arraySliceInPlace([], 2)).toEqual([]);
+    expect(arraySliceInPlace([1], 2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], 2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 2)).toEqual([3]);
+
+    expect(arraySliceInPlace([], 3)).toEqual([]);
+    expect(arraySliceInPlace([1], 3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], 3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 3)).toEqual([]);
+
+    expect(arraySliceInPlace([], -1)).toEqual([]);
+    expect(arraySliceInPlace([1], -1)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], -1)).toEqual([2]);
+    expect(arraySliceInPlace([1, 2, 3], -1)).toEqual([3]);
+
+    expect(arraySliceInPlace([], -2)).toEqual([]);
+    expect(arraySliceInPlace([1], -2)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], -2)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], -2)).toEqual([2, 3]);
+
+    expect(arraySliceInPlace([], -3)).toEqual([]);
+    expect(arraySliceInPlace([1], -3)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], -3)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], -3)).toEqual([1, 2, 3]);
+
+    expect(arraySliceInPlace([], undefined, 0)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, 0)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], undefined, 0)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, 0)).toEqual([]);
+
+    expect(arraySliceInPlace([], undefined, 1)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, 1)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], undefined, 1)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, 1)).toEqual([1]);
+
+    expect(arraySliceInPlace([], undefined, 2)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, 2)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], undefined, 2)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, 2)).toEqual([1, 2]);
+
+    expect(arraySliceInPlace([], undefined, 3)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, 3)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2], undefined, 3)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, 3)).toEqual([1, 2, 3]);
+
+    expect(arraySliceInPlace([], undefined, -1)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, -1)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], undefined, -1)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, -1)).toEqual([1, 2]);
+
+    expect(arraySliceInPlace([], undefined, -2)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, -2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], undefined, -2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, -2)).toEqual([1]);
+
+    expect(arraySliceInPlace([], undefined, -3)).toEqual([]);
+    expect(arraySliceInPlace([1], undefined, -3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2], undefined, -3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], undefined, -3)).toEqual([]);
+
+    expect(arraySliceInPlace([], 0, 0)).toEqual([]);
+    expect(arraySliceInPlace([], 0, 1)).toEqual([]);
+
+    expect(arraySliceInPlace([1, 2, 3], -1, -3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, -2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, -1)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, 0)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, 1)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, 2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], -1, 3)).toEqual([3]);
+
+    expect(arraySliceInPlace([1, 2, 3], 0, -3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 0, -2)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2, 3], 0, -1)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], 0, 0)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 0, 1)).toEqual([1]);
+    expect(arraySliceInPlace([1, 2, 3], 0, 2)).toEqual([1, 2]);
+    expect(arraySliceInPlace([1, 2, 3], 0, 3)).toEqual([1, 2, 3]);
+
+    expect(arraySliceInPlace([1, 2, 3], 1, -3)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 1, -2)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 1, -1)).toEqual([2]);
+    expect(arraySliceInPlace([1, 2, 3], 1, 0)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 1, 1)).toEqual([]);
+    expect(arraySliceInPlace([1, 2, 3], 1, 2)).toEqual([2]);
+    expect(arraySliceInPlace([1, 2, 3], 1, 3)).toEqual([2, 3]);
+  });
+
+  test('arrayMapInPlace', () => {
+    expect(arrayMapInPlace(numberRange(1, 6), (x) => x * 2)).toEqual(
+      numberRange(2, 12, 2)
+    );
+    expect(arrayMapInPlace(numberRange(1, 6), (x) => x.toString())).toEqual(
+      numberRange(1, 6).map((x) => x.toString())
+    );
+  });
+
+  test('arrayFilterInPlace', () => {
+    expect(
+      arrayFilterInPlace<{}, number[]>([], (x): x is Array<number> =>
+        Array.isArray(x)
+      )
+    ).toEqual([]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>([[1]], (x): x is Array<number> =>
+        Array.isArray(x)
+      )
+    ).toEqual([[1]]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>([[1], {}], (x): x is Array<number> =>
+        Array.isArray(x)
+      )
+    ).toEqual([[1]]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>(
+        [[1], {}, [2]],
+        (x): x is Array<number> => Array.isArray(x)
+      )
+    ).toEqual([[1], [2]]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>(
+        [[1], {}, [2], {}],
+        (x): x is Array<number> => Array.isArray(x)
+      )
+    ).toEqual([[1], [2]]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>(
+        [[1], {}, [2], {}, [3]],
+        (x): x is Array<number> => Array.isArray(x)
+      )
+    ).toEqual([[1], [2], [3]]);
+
+    expect(
+      arrayFilterInPlace<{}, number[]>(
+        [{}, {}, {}, [1], [2], {}, {}, [3], {}, {}],
+        (x): x is Array<number> => Array.isArray(x)
+      )
+    ).toEqual([[1], [2], [3]]);
+  });
+
+  test('arrayRemoveOneInPlace', () => {
+    expect(arrayRemoveOneInPlace([], 1)).toEqual([]);
+    expect(arrayRemoveOneInPlace(numberRange(1, 4), 0)).toEqual([1, 2, 3]);
+    expect(arrayRemoveOneInPlace(numberRange(1, 4), 1)).toEqual([2, 3]);
+    expect(arrayRemoveOneInPlace(numberRange(1, 4), 2)).toEqual([1, 3]);
+    expect(arrayRemoveOneInPlace(numberRange(1, 4), 3)).toEqual([1, 2]);
+    expect(arrayRemoveOneInPlace(numberRange(1, 4), 4)).toEqual([1, 2, 3]);
+    expect(arrayRemoveOneInPlace([1, 2, 3, 1, 2, 3], 1)).toEqual([
+      2, 3, 1, 2, 3,
+    ]);
+    expect(arrayRemoveOneInPlace([1, 2, 3, 1, 2, 3], 2)).toEqual([
+      1, 3, 1, 2, 3,
+    ]);
+    expect(arrayRemoveOneInPlace([1, 2, 3, 1, 2, 3], 3)).toEqual([
+      1, 2, 1, 2, 3,
+    ]);
+  });
+
+  test('arrayRemoveLastOneInPlace', () => {
+    expect(arrayRemoveLastOneInPlace([], 1)).toEqual([]);
+    expect(arrayRemoveLastOneInPlace(numberRange(1, 4), 0)).toEqual([1, 2, 3]);
+    expect(arrayRemoveLastOneInPlace(numberRange(1, 4), 1)).toEqual([2, 3]);
+    expect(arrayRemoveLastOneInPlace(numberRange(1, 4), 2)).toEqual([1, 3]);
+    expect(arrayRemoveLastOneInPlace(numberRange(1, 4), 3)).toEqual([1, 2]);
+    expect(arrayRemoveLastOneInPlace(numberRange(1, 4), 4)).toEqual([1, 2, 3]);
+    expect(arrayRemoveLastOneInPlace([1, 2, 3, 1, 2, 3], 1)).toEqual([
+      1, 2, 3, 2, 3,
+    ]);
+    expect(arrayRemoveLastOneInPlace([1, 2, 3, 1, 2, 3], 2)).toEqual([
+      1, 2, 3, 1, 3,
+    ]);
+    expect(arrayRemoveLastOneInPlace([1, 2, 3, 1, 2, 3], 3)).toEqual([
+      1, 2, 3, 1, 2,
+    ]);
+  });
+
+  test('arrayRemoveLastOneInPlace', () => {
+    expect(arrayRemoveManyInPlace([], 1)).toEqual([]);
+    expect(arrayRemoveManyInPlace(numberRange(1, 4), 0)).toEqual([1, 2, 3]);
+    expect(arrayRemoveManyInPlace(numberRange(1, 4), 1)).toEqual([2, 3]);
+    expect(arrayRemoveManyInPlace(numberRange(1, 4), 2)).toEqual([1, 3]);
+    expect(arrayRemoveManyInPlace(numberRange(1, 4), 3)).toEqual([1, 2]);
+    expect(arrayRemoveManyInPlace(numberRange(1, 4), 4)).toEqual([1, 2, 3]);
+    expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 1)).toEqual([2, 3, 2, 3]);
+    expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 2)).toEqual([1, 3, 1, 3]);
+    expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 3)).toEqual([1, 2, 1, 2]);
   });
 });

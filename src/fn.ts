@@ -55,3 +55,31 @@ export const roundSignificant = (n: number, nSig: number) =>
 
 export const isNonZeroAndFinite = (x: number) =>
   !!x && typeof x === 'number' && isFinite(x);
+
+export type CallLimitedFn<F extends AnyFunction> = (
+  ...args: Parameters<F>
+) => ReturnType<F> | void;
+
+export const funcOnce = <F extends AnyFunction>(fn: F): CallLimitedFn<F> =>
+  function (this: any) {
+    if (fn == null) return;
+    const cacheFn = fn;
+    fn = null as any;
+    return cacheFn.apply(this, arguments as any);
+  } as F;
+
+export const funcLimitCallCount = <F extends AnyFunction>(
+  fn: F,
+  count = 1
+): CallLimitedFn<F> =>
+  function (this: any) {
+    if (fn == null) return;
+
+    const cacheFn = fn;
+
+    if (--count < 1) {
+      fn = null as any;
+    }
+
+    return cacheFn.apply(this, arguments as any);
+  } as F;

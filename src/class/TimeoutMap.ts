@@ -49,14 +49,23 @@ export class TimeoutMap<Keys extends string = string> {
     } else {
       const timeouts = this._map.get(key);
       if (timeouts?.length) {
-        timeouts.forEach((timeout) => clearTimeout(timeout));
+        for (let ti = 0, tl = timeouts.length; ti < tl; ti += 1) {
+          clearTimeout(timeouts[ti]);
+        }
         timeouts.length = 0;
       }
     }
   }
 
   clearAll(): void {
-    this._map.forEach((fns) => fns.forEach((timeout) => clearTimeout(timeout)));
-    this._map.clear();
+    const { _map } = this;
+    for (let entry of _map) {
+      const timeouts = entry[1];
+      for (let ti = 0, tl = timeouts.length; ti < tl; ti += 1) {
+        clearTimeout(timeouts[ti]);
+      }
+      timeouts.length = 0;
+    }
+    _map.clear();
   }
 }

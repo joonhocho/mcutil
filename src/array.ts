@@ -5,6 +5,108 @@ export const arrayFirstItem = <T>(arr: T[]): T | undefined => arr[0];
 export const arrayLastItem = <T>(arr: T[]): T | undefined =>
   arr[arr.length - 1];
 
+export function arrayConcatInPlace<T>(arr: T[], ...lists: T[][]): T[];
+export function arrayConcatInPlace<T>(arr: T[]): T[] {
+  for (let i = 1, il = arguments.length; i < il; i++) {
+    arr.push(...arguments[i]);
+  }
+  return arr;
+}
+
+export const arraySliceInPlace = <T>(
+  arr: T[],
+  start = 0,
+  end = arr.length
+): T[] => {
+  const { length } = arr;
+
+  // already empty, nothing to do
+  if (length < 1) return arr;
+
+  const lastIndex = length - 1;
+
+  if (start < 0) start = length + start;
+  if (start <= 0) start = 0;
+  if (start > length) start = length;
+
+  if (end < 0) end = length + end;
+  if (end <= 0) end = 0;
+  if (end > length) end = length;
+
+  if (start >= end) {
+    // end - start is new length
+    arr.length = 0;
+    return arr;
+  }
+
+  if (end < length) {
+    arr.splice(end, length - end);
+  }
+
+  if (start > 0) {
+    arr.splice(0, start);
+  }
+
+  return arr;
+};
+
+export const arrayMapInPlace = <T, U>(
+  arr: T[],
+  mapFn: (value: T, index: number, array: T[]) => U,
+  thisArg?: any
+): U[] => {
+  const newArr = arr as unknown as U[];
+  for (let i = 0, il = arr.length; i < il; i += 1) {
+    newArr[i] = mapFn.call(thisArg, arr[i], i, arr);
+  }
+  return newArr;
+};
+
+export function arrayFilterInPlace<T, S extends T>(
+  arr: T[],
+  predicate: (value: T, index: number, array: T[]) => value is S,
+  thisArg?: any
+): S[];
+export function arrayFilterInPlace<T>(
+  arr: T[],
+  predicate: (value: T, index: number, array: T[]) => unknown,
+  thisArg?: any
+): T[] {
+  for (let i = 0; i < arr.length; ) {
+    if (predicate.call(thisArg, arr[i], i, arr)) {
+      i++;
+    } else {
+      arr.splice(i, 1);
+    }
+  }
+  return arr;
+}
+
+export const arrayRemoveOneInPlace = <T>(arr: T[], item: T): T[] => {
+  const i = arr.indexOf(item);
+  if (i >= 0) {
+    arr.splice(i, 1);
+  }
+  return arr;
+};
+
+export const arrayRemoveLastOneInPlace = <T>(arr: T[], item: T): T[] => {
+  const i = arr.lastIndexOf(item);
+  if (i >= 0) {
+    arr.splice(i, 1);
+  }
+  return arr;
+};
+
+export const arrayRemoveManyInPlace = <T>(arr: T[], item: T): T[] => {
+  for (let i = arr.length - 1; i >= 0; i -= 1) {
+    if (arr[i] === item) {
+      arr.splice(i, 1);
+    }
+  }
+  return arr;
+};
+
 export const arraySliceLeft = <T>(arr: T[], count: number): T[] =>
   count < 1 || arr.length <= 0
     ? []

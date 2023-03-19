@@ -33,14 +33,23 @@ export class CleanUpMap<Keys extends string = string> {
       const key = keys[ki];
       const fns = _map.get(key);
       if (fns?.length) {
-        fns.forEach((fn) => fn());
+        for (let fi = 0, fl = fns.length; fi < fl; fi += 1) {
+          fns[fi]();
+        }
         fns.length = 0;
       }
     }
   }
 
   clearAll(): void {
-    this._map.forEach((fns) => fns.forEach((fn) => fn()));
-    this._map.clear();
+    const { _map } = this;
+    for (let entry of _map) {
+      const fns = entry[1];
+      for (let fi = 0, fl = fns.length; fi < fl; fi += 1) {
+        fns[fi]();
+      }
+      fns.length = 0;
+    }
+    _map.clear();
   }
 }
