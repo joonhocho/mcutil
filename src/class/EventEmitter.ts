@@ -20,7 +20,7 @@ export class EventEmitter<EventMap extends IEventMap> {
     fn: EventEmitterHandler<EventMap[Type]>
   ): () => void {
     // ! immutable prevents callbacks to be mutated in the middle of emit
-    this.cbs[type] = (this.cbs[type] || []).concat(fn);
+    this.cbs[type] = [...(this.cbs[type] || []), fn];
 
     let offed = false;
 

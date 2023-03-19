@@ -9,7 +9,7 @@ export class PubSub<Params extends any[]> {
 
   on(fn: PubSubHandler<Params>): () => void {
     // ! immutable prevents callbacks to be mutated in the middle of emit
-    this.cbs = this.cbs.concat(fn);
+    this.cbs = [...this.cbs, fn];
 
     let offed = false;
 

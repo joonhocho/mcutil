@@ -1,4 +1,3 @@
-import { removeItem } from '../array.js';
 import { objectHasKeyOfValue, objectKeys, objectMap } from '../object.js';
 import { CleanUpMap } from './CleanUpMap.js';
 
@@ -596,9 +595,9 @@ export class BaseSmartState<
         }
 
         // on changed events
-        const watchers = this._watchers.slice();
-        for (let j = 0, jl = watchers.length; j < jl; j += 1) {
-          const watchInfo = watchers[j];
+        const { _watchers } = this;
+        for (let wi = 0, wl = _watchers.length; wi < wl; wi += 1) {
+          const watchInfo = _watchers[wi];
           const { keys, watcher } = watchInfo;
           if (objectHasKeyOfValue(dirty, keys, 1)) {
             if ('select' in watchInfo) {
@@ -673,8 +672,12 @@ export class BaseSmartState<
       watcher,
       multiple: true,
     };
-    this._watchers.push(item);
-    return () => removeItem(this._watchers, item);
+
+    this._watchers = [...this._watchers, item];
+
+    return () => {
+      this._watchers = this._watchers.filter((x) => x !== item);
+    };
   }
 
   $onKey<Key extends KeyOf<Props>>(
@@ -686,8 +689,12 @@ export class BaseSmartState<
       watcher: watcher as KeyWatcher<Props, KeyOf<Props>>,
       multiple: false,
     };
-    this._watchers.push(item);
-    return () => removeItem(this._watchers, item);
+
+    this._watchers = [...this._watchers, item];
+
+    return () => {
+      this._watchers = this._watchers.filter((x) => x !== item);
+    };
   }
 
   $select<Mapped>(
@@ -735,8 +742,12 @@ export class BaseSmartState<
       select,
       watcher,
     };
-    this._watchers.push(item);
-    return () => removeItem(this._watchers, item);
+
+    this._watchers = [...this._watchers, item];
+
+    return () => {
+      this._watchers = this._watchers.filter((x) => x !== item);
+    };
   }
 
   $clear() {

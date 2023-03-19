@@ -368,7 +368,7 @@ export class SortedArray<T> {
     this._list = this._list.filter(predicate, thisArg);
   }
 
-  arraySlice(start?: number, end?: number): T[] {
+  slice(start?: number, end?: number): T[] {
     return this._list.slice(start, end);
   }
 
