@@ -1,3 +1,5 @@
+import { funcOnce } from '../fn.js';
+
 export const PUBSUB_BREAK = {};
 
 export type PubSubHandler<Params extends any[]> = (
@@ -11,14 +13,7 @@ export class PubSub<Params extends any[]> {
     // ! immutable prevents callbacks to be mutated in the middle of emit
     this.cbs = [...this.cbs, fn];
 
-    let offed = false;
-
-    return () => {
-      if (offed) return;
-      offed = true;
-      this.off(fn);
-      fn = null as any; // free memory just in case
-    };
+    return funcOnce(() => this.off(fn));
   }
 
   off(fn: PubSubHandler<Params>): void {
