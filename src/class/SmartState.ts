@@ -270,6 +270,8 @@ export class BaseSmartState<
     | SelectWatcherInfo<Props, ComputedKeys, Methods, Config, any>
   > = [];
 
+  protected _destroyed = false;
+
   $config: Config;
 
   // Object.keys(_allProps)
@@ -391,6 +393,8 @@ export class BaseSmartState<
   }
 
   $set(nextState: Partial<Props>): void {
+    if (this._destroyed) return;
+
     const { _state } = this;
     if (_state === nextState || objectEmpty(nextState)) return;
 
@@ -411,6 +415,8 @@ export class BaseSmartState<
   }
 
   $setKey<Key extends KeyOf<Props>>(key: Key, val: Props[Key]): void {
+    if (this._destroyed) return;
+
     const { _state } = this;
     if (_state[key] === val) return;
 
@@ -431,6 +437,8 @@ export class BaseSmartState<
       draft: Props
     ) => Partial<Props>
   ): void {
+    if (this._destroyed) return;
+
     return this.$set(updater.call(this, this._draft || this._state));
   }
 
@@ -443,6 +451,8 @@ export class BaseSmartState<
       state: Props
     ) => Props[Key]
   ): void {
+    if (this._destroyed) return;
+
     const state = this._draft || this._state;
     return this.$setKey(key, updater.call(this, state[key], state));
   }
@@ -672,6 +682,8 @@ export class BaseSmartState<
   }
 
   $on(keys = this._keys, watcher: StateWatcher<Props>): VoidFunction {
+    if (this._destroyed) return () => {};
+
     const item: WatcherInfo<Props> = {
       keys,
       watcher,
@@ -689,6 +701,8 @@ export class BaseSmartState<
     key: Key,
     watcher: KeyWatcher<Props, Key>
   ): VoidFunction {
+    if (this._destroyed) return () => {};
+
     const item: WatcherInfo<Props> = {
       keys: [key],
       watcher: watcher as KeyWatcher<Props, KeyOf<Props>>,
@@ -735,6 +749,8 @@ export class BaseSmartState<
       'keys' | 'select' | 'watcher'
     >
   ): VoidFunction {
+    if (this._destroyed) return () => {};
+
     const item: SelectWatcherInfo<
       Props,
       ComputedKeys,
@@ -767,11 +783,15 @@ export class BaseSmartState<
     this.$clear();
   }
 
-  $addOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
+  $addOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined): void {
+    if (this._destroyed) return;
+
     if (fn) this.$cleanup.add(key, fn);
   }
 
   $setOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
+    if (this._destroyed) return;
+
     this.$cleanup.set(key, fn || []);
   }
 
@@ -780,6 +800,9 @@ export class BaseSmartState<
   }
 
   $destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+
     // TODO
     // this._draft = {} as any;
     // this._commitDraft();
@@ -836,6 +859,8 @@ export class BaseSmartState<
   }
 
   $undo(): void {
+    if (this._destroyed) return;
+
     const toIndex = this._historyIndex - 1;
     const op = this._history[toIndex];
     if (op) {
@@ -851,6 +876,8 @@ export class BaseSmartState<
   }
 
   $redo(): void {
+    if (this._destroyed) return;
+
     const toIndex = this._historyIndex + 1;
     const op = this._history[toIndex];
     if (op) {
@@ -865,6 +892,8 @@ export class BaseSmartState<
     key: Key,
     value: Value<Props[Key]>
   ): VoidFunction {
+    if (this._destroyed) return () => {};
+
     this.$setKey(key, value.value);
 
     const offValue = value.on((val) => this.$setKey(key, val));
@@ -881,6 +910,8 @@ export class BaseSmartState<
     state: SmartState<any, any, any, any>,
     key2: any
   ): VoidFunction {
+    if (this._destroyed) return () => {};
+
     this.$setKey(key, state.$getKey(key2) as unknown as Props[Key]);
 
     return state.$onKey(key2, (val: any) => this.$setKey(key, val));
@@ -891,6 +922,8 @@ export class BaseSmartState<
     state: SmartState<any, any, any, any>,
     key2: any
   ): VoidFunction {
+    if (this._destroyed) return () => {};
+
     this.$setKey(key, state.$getKey(key2) as unknown as Props[Key]);
 
     const offValue = state.$onKey(key2, (val: any) => this.$setKey(key, val));

@@ -62,6 +62,8 @@ export class PersistentWebSocket<
 
   protected _reconnectTimer: NodeJS.Timer | null = null;
 
+  protected _destroyed = false;
+
   constructor({
     createWebSocket,
     noAutoConnect = false,
@@ -124,6 +126,9 @@ export class PersistentWebSocket<
   }
 
   destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+
     this._timeouts.destroy();
 
     this.close();
@@ -187,9 +192,9 @@ export class PersistentWebSocket<
   }
 
   protected _initWebSocket() {
-    try {
-      this._timeouts.clear('timeout');
+    this._timeouts.clear('timeout');
 
+    try {
       const ws = this._createWebSocket();
       this.state.ws = ws;
 
@@ -227,6 +232,8 @@ export class PersistentWebSocket<
   }
 
   connect(): boolean {
+    if (this._destroyed) return false;
+
     this._timeouts.clear('timeout');
     this._timeouts.clear('reconnect');
 
@@ -240,6 +247,8 @@ export class PersistentWebSocket<
   }
 
   reconnect(force = true): boolean {
+    if (this._destroyed) return false;
+
     this._timeouts.clear('timeout');
     this._timeouts.clear('reconnect');
     this.close();
@@ -260,6 +269,8 @@ export class PersistentWebSocket<
   }
 
   send(...data: any): void {
+    if (this._destroyed) return;
+
     (this.state.ws?.send as AnyFunction)(...data);
   }
 
