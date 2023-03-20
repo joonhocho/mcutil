@@ -387,6 +387,7 @@ export class BaseSmartState<
         changed = true;
       }
     }
+    // TODO normalize and compute
 
     if (isNotCommitting) {
       // draft was null
@@ -406,6 +407,7 @@ export class BaseSmartState<
     const draft = this._draft || (this._draft = { ...this._state });
 
     draft[key] = val;
+    // TODO normalize and compute
 
     if (isNotCommitting) this._commitDraft();
   }
@@ -454,7 +456,7 @@ export class BaseSmartState<
     return { dirty, dirtyKeys };
   }
 
-  protected _normalizeAndReturnChanged<Key extends KeyOf<Props>>(
+  protected _normalizeKeyAndReturnChanged<Key extends KeyOf<Props>>(
     draft: Props,
     key: Key,
     prevVal: Props[Key] | undefined
@@ -495,7 +497,7 @@ export class BaseSmartState<
     return true;
   }
 
-  protected _normalizeAndCheckDirty(
+  protected _normalizeDraftAndCheckDirty(
     draft: Props,
     prevDraft: Props,
     keys: Array<KeyOf<Props>> = this._keys
@@ -504,7 +506,7 @@ export class BaseSmartState<
     const dirtyKeys: Array<KeyOf<Props>> = [];
     for (let i = 0, il = keys.length; i < il; i += 1) {
       const key = keys[i];
-      if (this._normalizeAndReturnChanged(draft, key, prevDraft[key])) {
+      if (this._normalizeKeyAndReturnChanged(draft, key, prevDraft[key])) {
         dirty[key] = 1;
         dirtyKeys.push(key);
       }
@@ -526,7 +528,7 @@ export class BaseSmartState<
         throw new TooManyDirtyCheckIterationError();
       }
 
-      const { dirty, dirtyKeys } = this._normalizeAndCheckDirty(
+      const { dirty, dirtyKeys } = this._normalizeDraftAndCheckDirty(
         draft,
         prevDraft
       );
