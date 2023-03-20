@@ -983,10 +983,6 @@ export function defineSmartState<
       });
     }
 
-    for (let i = 0, il = deps.length; i < il; i += 1) {
-      addItem(computeGraphNodes[deps[i]].invalidates, key);
-    }
-
     computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
       computeGraphNodes,
       key,
@@ -997,6 +993,15 @@ export function defineSmartState<
       valid,
       equals
     );
+  }
+
+  for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
+    const key = _computedKeys[i];
+    const { deps } = computed[key];
+
+    for (let i = 0, il = deps.length; i < il; i += 1) {
+      addItem(computeGraphNodes[deps[i]].invalidates, key);
+    }
   }
 
   _onDrafts.push(...drafts);
