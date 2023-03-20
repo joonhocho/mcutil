@@ -322,10 +322,12 @@ export class BaseSmartState<
   ) {
     this.$config = config;
 
-    const { _computeGraphNodes } = this;
+    const { _computeGraphNodes, _keys, _computedKeys } = this;
 
     const draft = { ...initialState } as Props;
-    for (let key in draft) {
+
+    for (let i = 0, il = _keys.length; i < il; i += 1) {
+      const key = _keys[i];
       const node = _computeGraphNodes[key];
       node.changed = false;
       node.checked = false;
@@ -334,6 +336,9 @@ export class BaseSmartState<
 
     for (let key in draft) {
       _computeGraphNodes[key].check(draft, this);
+    }
+    for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
+      _computeGraphNodes[_computedKeys[i]].check(draft, this);
     }
 
     this._watchers = [];
