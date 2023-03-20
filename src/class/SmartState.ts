@@ -57,43 +57,17 @@ export type KeyWatcher<Props, Key extends KeyOf<Props>> = (
 
 export type StateWatcher<Props> = (nextState: Props, prevState: Props) => void;
 
-export type WatcherInfo<Props> = {
-  keys: Array<KeyOf<Props>>;
-  watcher: KeyWatcher<Props, KeyOf<Props>> | StateWatcher<Props>;
-  multiple: boolean;
-};
-
-export type SelectWatcherInfo<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface,
-  Config extends IEmptyInterface,
-  Mapped
-> = {
-  keys: Array<KeyOf<Props>>;
-  select: (
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    nextState: Props,
-    prevState: Props
-  ) => Mapped;
-  prev?: Mapped;
-  normalize?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    next: Mapped,
-    prev: Mapped | undefined
-  ): Mapped;
-  equals?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    a: Mapped,
-    b: Mapped
-  ): boolean;
-  watcher: (
-    next: Mapped,
-    prev: Mapped,
-    nextState: Props,
-    prevState: Props
-  ) => void;
-};
+export type WatcherInfo<Props> =
+  | {
+      key: KeyOf<Props>;
+      watcher: KeyWatcher<Props, KeyOf<Props>>;
+      multiple: false;
+    }
+  | {
+      keys: Array<KeyOf<Props>>;
+      watcher: StateWatcher<Props>;
+      multiple: true;
+    };
 
 export type Normalizer<T> = (val: T) => T;
 
@@ -256,7 +230,10 @@ export class BaseSmartState<
 
   $cleanup = new CleanUpMap();
 
+  // committed stable state
   protected _state: Props;
+
+  // uncommitted latest state
   protected _draft: Props | null = null;
 
   protected _history: IStateOperation[] = [];
@@ -265,10 +242,7 @@ export class BaseSmartState<
 
   protected _maxIteration = 10;
 
-  protected _watchers: Array<
-    | WatcherInfo<Props>
-    | SelectWatcherInfo<Props, ComputedKeys, Methods, Config, any>
-  > = [];
+  protected _watchers: Array<WatcherInfo<Props>> = [];
 
   protected _destroyed = false;
 
@@ -374,60 +348,66 @@ export class BaseSmartState<
     this._watchers = [];
   }
 
+  get $state(): Props {
+    return this._draft || this._state;
+  }
+
   $getState(): Props {
-    return this._state;
+    return this._draft || this._state;
   }
 
   $get<Key extends KeyOf<Props>>(keys = this._keys as Key[]): Pick<Props, Key> {
-    const state = this._draft || this._state;
+    const { $state } = this;
     const partial = {} as Pick<Props, Key>;
     for (let i = 0, il = keys.length; i < il; i += 1) {
       const key = keys[i];
-      partial[key] = state[key];
+      partial[key] = $state[key];
     }
     return partial;
   }
 
   $getKey<Key extends KeyOf<Props>>(key: Key): Props[Key] {
-    return (this._draft || this._state)[key];
+    return this.$state[key];
   }
 
   $set(nextState: Partial<Props>): void {
-    if (this._destroyed) return;
+    if (this._destroyed || objectEmpty(nextState)) return;
 
-    const { _state } = this;
-    if (_state === nextState || objectEmpty(nextState)) return;
+    const isNotCommitting = this._draft == null;
+    const { $state } = this;
+    const draft = this._draft || (this._draft = { ...this._state });
 
-    const hadDraft = this._draft != null;
-    const _draft = this._draft || (this._draft = { ..._state });
+    let changed = false;
 
     const { _keys } = this;
     for (let i = 0, il = _keys.length; i < il; i += 1) {
       const key = _keys[i];
-      if (key in nextState) {
-        _draft[key] = nextState[key]!;
+      if (key in nextState && nextState[key] !== $state[key]) {
+        draft[key] = nextState[key]!;
+        changed = true;
       }
     }
 
-    if (!hadDraft) {
-      this._commitDraft();
+    if (isNotCommitting) {
+      // draft was null
+
+      if (changed) {
+        this._commitDraft();
+      } else {
+        this._draft = null;
+      }
     }
   }
 
   $setKey<Key extends KeyOf<Props>>(key: Key, val: Props[Key]): void {
-    if (this._destroyed) return;
+    if (this._destroyed || this.$state[key] === val) return;
 
-    const { _state } = this;
-    if (_state[key] === val) return;
+    const isNotCommitting = this._draft == null;
+    const draft = this._draft || (this._draft = { ...this._state });
 
-    const hadDraft = this._draft != null;
-    const _draft = this._draft || (this._draft = { ..._state });
+    draft[key] = val;
 
-    _draft[key] = val;
-
-    if (!hadDraft) {
-      this._commitDraft();
-    }
+    if (isNotCommitting) this._commitDraft();
   }
 
   $update(
@@ -439,7 +419,7 @@ export class BaseSmartState<
   ): void {
     if (this._destroyed) return;
 
-    return this.$set(updater.call(this, this._draft || this._state));
+    return this.$set(updater.call(this, this.$state));
   }
 
   $updateKey<Key extends KeyOf<Props>>(
@@ -453,64 +433,20 @@ export class BaseSmartState<
   ): void {
     if (this._destroyed) return;
 
-    const state = this._draft || this._state;
-    return this.$setKey(key, updater.call(this, state[key], state));
+    const { $state } = this;
+    return this.$setKey(key, updater.call(this, $state[key], $state));
   }
 
-  protected _normalizeProp<Key extends KeyOf<Props>>(
-    _draft: Props,
-    key: Key,
-    prevVal: Props[Key] | undefined
-  ): boolean {
-    let nextVal = _draft[key];
-    // unchanged
-    if (nextVal === prevVal) return false;
-
-    const { normalize, valid, equals } = this._allProps[key];
-    if (typeof normalize === 'function') {
-      nextVal = _draft[key] = normalize.call(
-        this as any,
-        nextVal as any,
-        prevVal as any,
-        _draft
-      ) as typeof nextVal;
-
-      // unchanged
-      if (nextVal === prevVal) return false;
-    }
-
-    if (
-      typeof valid === 'function' &&
-      !valid.call(this as any, nextVal, _draft)
-    ) {
-      console.log(key, nextVal);
-      throw new InvalidPropertyValueError(key, nextVal);
-    }
-
-    if (
-      prevVal !== undefined &&
-      nextVal !== undefined &&
-      typeof equals === 'function' &&
-      equals.call(this as any, nextVal as any, prevVal as any)
-    ) {
-      // unchanged
-      _draft[key] = prevVal;
-      return false;
-    }
-
-    return true;
-  }
-
-  protected _getDirtyKeys(
+  protected _checkDirtyQuick(
     draft: Props,
-    prevDraft = this._state,
+    prevDraft: Props,
     keys: Array<KeyOf<Props>> = this._keys
   ) {
-    const dirty: Partial<Record<KeyOf<Props>, 1 | undefined>> = {};
+    const dirty: Partial<Record<KeyOf<Props>, 1>> = {};
     const dirtyKeys: Array<KeyOf<Props>> = [];
     for (let i = 0, il = keys.length; i < il; i += 1) {
       const key = keys[i];
-      if (this._normalizeProp(draft, key, prevDraft[key])) {
+      if (draft[key] !== prevDraft[key]) {
         dirty[key] = 1;
         dirtyKeys.push(key);
       }
@@ -518,35 +454,97 @@ export class BaseSmartState<
     return { dirty, dirtyKeys };
   }
 
-  protected _runWillSetAndCompute(prevState = this._state): boolean {
-    const { _draft, _allProps, _onDrafts, _maxIteration } = this;
-    if (_draft == null) {
+  protected _normalizeAndReturnChanged<Key extends KeyOf<Props>>(
+    draft: Props,
+    key: Key,
+    prevVal: Props[Key] | undefined
+  ): boolean {
+    let nextVal = draft[key];
+    // unchanged
+    if (nextVal === prevVal) return false;
+
+    const { normalize, valid, equals } = this._allProps[key];
+    if (normalize != null) {
+      nextVal = draft[key] = normalize.call(
+        this as any,
+        nextVal as any,
+        prevVal as any,
+        draft
+      ) as typeof nextVal;
+
+      // unchanged
+      if (nextVal === prevVal) return false;
+    }
+
+    if (valid != null && !valid.call(this as any, nextVal, draft)) {
+      throw new InvalidPropertyValueError(key, nextVal);
+    }
+
+    if (
+      prevVal !== undefined &&
+      nextVal !== undefined &&
+      equals != null &&
+      equals.call(this as any, nextVal as any, prevVal as any)
+    ) {
+      // unchanged
+      draft[key] = prevVal;
       return false;
     }
 
-    for (let i = 0, changed = false, prevDraft = prevState; true; i += 1) {
-      if (i >= _maxIteration) {
+    // changed
+    return true;
+  }
+
+  protected _normalizeAndCheckDirty(
+    draft: Props,
+    prevDraft: Props,
+    keys: Array<KeyOf<Props>> = this._keys
+  ) {
+    const dirty: Partial<Record<KeyOf<Props>, 1>> = {};
+    const dirtyKeys: Array<KeyOf<Props>> = [];
+    for (let i = 0, il = keys.length; i < il; i += 1) {
+      const key = keys[i];
+      if (this._normalizeAndReturnChanged(draft, key, prevDraft[key])) {
+        dirty[key] = 1;
+        dirtyKeys.push(key);
+      }
+    }
+    return { dirty, dirtyKeys };
+  }
+
+  protected _runComputesAndReturnChanged(
+    draft: Props,
+    prevState: Props
+  ): boolean {
+    const { _allProps, _onDrafts, _maxIteration } = this;
+
+    let changed = false;
+    let prevDraft = prevState;
+
+    for (let iter = 0; true; iter += 1) {
+      if (iter >= _maxIteration) {
         throw new TooManyDirtyCheckIterationError();
       }
 
-      const { dirty, dirtyKeys } = this._getDirtyKeys(_draft, prevDraft);
-      if (!dirtyKeys.length) {
-        return changed;
-      }
+      const { dirty, dirtyKeys } = this._normalizeAndCheckDirty(
+        draft,
+        prevDraft
+      );
+      if (!dirtyKeys.length) return changed;
 
       changed = true;
 
-      const pendingPrevDraft = { ..._draft };
+      const draftSnapshot = { ...draft };
 
-      for (let j = 0, jl = dirtyKeys.length; j < jl; j += 1) {
-        const key = dirtyKeys[j];
+      for (let di = 0, dl = dirtyKeys.length; di < dl; di += 1) {
+        const key = dirtyKeys[di];
         const { willSet } = _allProps[key];
-        if (typeof willSet === 'function') {
+        if (willSet != null) {
           willSet.call(
             this as any,
-            _draft[key] as any,
+            draft[key] as any,
             prevDraft[key] as any,
-            _draft
+            draft
           );
         }
       }
@@ -558,42 +556,41 @@ export class BaseSmartState<
           //mutates,
         } = _onDrafts[j];
         if (objectHasKeyOfValue(dirty, deps, 1)) {
-          compute.call(this as any, _draft, prevDraft);
+          compute.call(this as any, draft, prevDraft);
         }
       }
 
-      prevDraft = pendingPrevDraft;
+      prevDraft = draftSnapshot;
     }
   }
 
   protected _commitDraft(): boolean {
     const { _draft } = this;
-    if (_draft == null) {
-      return false;
-    }
+    if (_draft == null) return false;
 
-    const { _allProps, _maxIteration } = this;
     // const prevState = this._state;
 
     let changed = false;
+
     try {
-      for (let i = 0, prevDraft = this._state; true; i += 1) {
-        if (i >= _maxIteration) {
+      const { _allProps, _maxIteration } = this;
+
+      let prevDraft = this._state;
+
+      for (let iter = 0; true; iter += 1) {
+        if (iter >= _maxIteration) {
           throw new TooManyDirtyCheckIterationError();
         }
 
-        if (!this._runWillSetAndCompute(prevDraft)) {
-          break;
-        }
+        if (!this._runComputesAndReturnChanged(_draft, prevDraft)) break;
 
-        const { dirty, dirtyKeys } = this._getDirtyKeys(_draft, prevDraft);
-        if (!dirtyKeys.length) {
-          break;
-        }
+        // all props already normalized, just need to quick dirty check
+        const { dirty, dirtyKeys } = this._checkDirtyQuick(_draft, prevDraft);
+        if (!dirtyKeys.length) break;
 
         changed = true;
 
-        const pendingPrevDraft = { ..._draft };
+        const draftSnapshot = { ..._draft };
 
         // didSet
         for (let j = 0, jl = dirtyKeys.length; j < jl; j += 1) {
@@ -612,48 +609,18 @@ export class BaseSmartState<
         // on changed events
         const { _watchers } = this;
         for (let wi = 0, wl = _watchers.length; wi < wl; wi += 1) {
-          const watchInfo = _watchers[wi];
-          const { keys, watcher } = watchInfo;
-          if (objectHasKeyOfValue(dirty, keys, 1)) {
-            if ('select' in watchInfo) {
-              const { select, prev, normalize, equals } = watchInfo;
-              let mapped = select.call(this as any, _draft, prevDraft);
-              let changed = mapped !== prev;
-              if (changed) {
-                if (typeof normalize === 'function') {
-                  mapped = normalize.call(this as any, mapped, prev);
-                  changed = mapped !== prev;
-                }
-                if (
-                  changed &&
-                  prev !== undefined &&
-                  typeof equals === 'function'
-                ) {
-                  changed = !equals.call(this as any, mapped, prev);
-                }
-                if (changed) {
-                  watchInfo.prev = mapped;
-                  watcher(mapped, prev, _draft, prevDraft);
-                }
-              }
-            } else {
-              const { multiple } = watchInfo;
-              if (multiple) {
-                (watcher as StateWatcher<Props>)(_draft, prevDraft);
-              } else {
-                const [key] = keys;
-                (watcher as KeyWatcher<Props, typeof key>)(
-                  _draft[key],
-                  prevDraft[key],
-                  _draft,
-                  prevDraft
-                );
-              }
-            }
+          const wItem = _watchers[wi];
+          if (wItem.multiple) {
+            if (!objectHasKeyOfValue(dirty, wItem.keys, 1)) continue;
+            wItem.watcher(_draft, prevDraft);
+          } else {
+            const { key } = wItem;
+            if (dirty[key] !== 1) continue;
+            wItem.watcher(_draft[key], prevDraft[key], _draft, prevDraft);
           }
         }
 
-        prevDraft = pendingPrevDraft;
+        prevDraft = draftSnapshot;
       }
     } catch (e) {
       throw e;
@@ -661,9 +628,7 @@ export class BaseSmartState<
       this._draft = null;
     }
 
-    if (!changed) {
-      return false;
-    }
+    if (!changed) return false;
 
     this._state = _draft;
 
@@ -690,6 +655,7 @@ export class BaseSmartState<
       multiple: true,
     };
 
+    // use immutable to avoid change during event calls
     this._watchers = [...this._watchers, item];
 
     return () => {
@@ -704,66 +670,12 @@ export class BaseSmartState<
     if (this._destroyed) return () => {};
 
     const item: WatcherInfo<Props> = {
-      keys: [key],
+      key,
       watcher: watcher as KeyWatcher<Props, KeyOf<Props>>,
       multiple: false,
     };
 
-    this._watchers = [...this._watchers, item];
-
-    return () => {
-      this._watchers = this._watchers.filter((x) => x !== item);
-    };
-  }
-
-  $select<Mapped>(
-    select: SelectWatcherInfo<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Mapped
-    >['select']
-  ): Mapped {
-    return select.call(this as any, this._state, this._state);
-  }
-
-  $onSelect<Mapped>(
-    keys = this._keys,
-    select: SelectWatcherInfo<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Mapped
-    >['select'],
-    watcher: SelectWatcherInfo<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Mapped
-    >['watcher'],
-    config?: Omit<
-      SelectWatcherInfo<Props, ComputedKeys, Methods, Config, Mapped>,
-      'keys' | 'select' | 'watcher'
-    >
-  ): VoidFunction {
-    if (this._destroyed) return () => {};
-
-    const item: SelectWatcherInfo<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Mapped
-    > = {
-      ...config,
-      keys,
-      select,
-      watcher,
-    };
-
+    // use immutable to avoid change during event calls
     this._watchers = [...this._watchers, item];
 
     return () => {
@@ -999,7 +911,7 @@ export function defineSmartState<
     _onDrafts.push({
       deps,
       mutates: [key],
-      compute(nextState, prevState) {
+      compute(nextState) {
         nextState[key] = get.call(this, nextState);
       },
     });
@@ -1007,7 +919,7 @@ export function defineSmartState<
       _onDrafts.push({
         deps: [key],
         mutates: deps,
-        compute(nextState, prevState) {
+        compute(nextState) {
           set.call(this, nextState[key], nextState);
         },
       });

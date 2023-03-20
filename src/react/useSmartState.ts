@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 
 import type {
   KeyWatcher,
-  SelectWatcherInfo,
   SmartState,
   StateWatcher,
 } from '../class/SmartState.js';
@@ -130,31 +129,20 @@ export const useSelectSmartState = <
 >(
   state: SmartState<Props, ComputedKeys, Methods, Config>,
   keys: Keys[],
-  select: SelectWatcherInfo<
-    Props,
-    ComputedKeys,
-    Methods,
-    Config,
-    Mapped
-  >['select'],
-  options?: Omit<
-    SelectWatcherInfo<Props, ComputedKeys, Methods, Config, Mapped>,
-    'keys' | 'select' | 'watcher'
-  >,
+  select: (
+    this: SmartState<Props, ComputedKeys, Methods, Config>,
+    nextState: Props
+  ) => Mapped,
   deps: any[] = [state]
 ): Mapped => {
-  const [value, setValue] = useState(() => state.$select(select));
+  const [value, setValue] = useState(() =>
+    select.call(state, state.$getState())
+  );
 
   useEffect(() => {
-    const v = state.$select(select);
-    setValue(typeof v === 'function' ? () => v : v); // ! necessary since value may have changed since init
+    setValue(select.call(state, state.$getState())); // ! necessary since value may have changed since init
 
-    return state.$onSelect(
-      keys,
-      select,
-      (next) => setValue(typeof next === 'function' ? () => next : next),
-      options
-    );
+    return state.$on(keys, (next) => setValue(select.call(state, next)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

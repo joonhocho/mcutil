@@ -189,16 +189,6 @@ test('SmartState', () => {
     fullNames.push(next)
   );
 
-  const selecteds: string[] = [];
-  const watcher3Off = state.$onSelect(
-    ['right', 'fullName'],
-    (nextState, prevState) => [nextState.right, nextState.fullName],
-    (next) => {
-      selecteds.push(next.join(','));
-    },
-    { normalize: (x) => x, equals: arraysEqual }
-  );
-
   state.fullName = 'F L';
 
   expect(state.fullName).toBe('F L');
@@ -209,7 +199,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([]);
   expect(firstNames).toEqual(['F']);
   expect(fullNames).toEqual(['F L']);
-  expect(selecteds).toEqual(['110,F L']);
 
   state.left = 5;
 
@@ -217,7 +206,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5]);
   expect(firstNames).toEqual(['F']);
   expect(fullNames).toEqual(['F L']);
-  expect(selecteds).toEqual(['110,F L', '105,F L']);
 
   state.width = 80;
 
@@ -225,7 +213,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5]);
   expect(firstNames).toEqual(['F']);
   expect(fullNames).toEqual(['F L']);
-  expect(selecteds).toEqual(['110,F L', '105,F L', '85,F L']);
 
   state.left = 10;
 
@@ -233,7 +220,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F']);
   expect(fullNames).toEqual(['F L']);
-  expect(selecteds).toEqual(['110,F L', '105,F L', '85,F L', '90,F L']);
 
   expect(() => {
     state.right = 100;
@@ -250,7 +236,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F']);
   expect(fullNames).toEqual(['F L']);
-  expect(selecteds).toEqual(['110,F L', '105,F L', '85,F L', '90,F L']);
 
   state.fullName = 'ABC DEF';
 
@@ -261,13 +246,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F', 'ABC']);
   expect(fullNames).toEqual(['F L', 'ABC DEF']);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-  ]);
 
   state.fullName = 'ABC DEF';
 
@@ -277,13 +255,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F', 'ABC']);
   expect(fullNames).toEqual(['F L', 'ABC DEF']);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-  ]);
 
   state.fullName = '  ABC  DEF  ';
 
@@ -294,13 +265,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F', 'ABC']);
   expect(fullNames).toEqual(['F L', 'ABC DEF']);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-  ]);
 
   state.firstName = 'aaa';
 
@@ -311,14 +275,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F', 'ABC', 'aaa']);
   expect(fullNames).toEqual(['F L', 'ABC DEF', 'aaa DEF']);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-    '90,aaa DEF',
-  ]);
 
   state.lastName = 'lll';
 
@@ -329,15 +285,6 @@ test('SmartState', () => {
   expect(lefts).toEqual([5, 10]);
   expect(firstNames).toEqual(['F', 'ABC', 'aaa']);
   expect(fullNames).toEqual(['F L', 'ABC DEF', 'aaa DEF', 'aaa lll']);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-    '90,aaa DEF',
-    '90,aaa lll',
-  ]);
 
   state.$set({ firstName: 'fff', lastName: 'LLL', left: 20, width: 50 });
 
@@ -353,16 +300,6 @@ test('SmartState', () => {
     'aaa DEF',
     'aaa lll',
     'fff LLL',
-  ]);
-  expect(selecteds).toEqual([
-    '110,F L',
-    '105,F L',
-    '85,F L',
-    '90,F L',
-    '90,ABC DEF',
-    '90,aaa DEF',
-    '90,aaa lll',
-    '70,fff LLL',
   ]);
 
   watcherOff();
@@ -481,8 +418,6 @@ test('SmartState', () => {
     desc: false,
   });
   expect(state.leftTop).toEqual([1, 3]);
-
-  watcher3Off();
 });
 
 test('Chained Computed', () => {
