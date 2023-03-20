@@ -1,4 +1,9 @@
-import { objectHasKeyOfValue, objectKeys, objectMap } from '../object.js';
+import {
+  objectEmpty,
+  objectHasKeyOfValue,
+  objectKeys,
+  objectMap,
+} from '../object.js';
 import { CleanUpMap } from './CleanUpMap.js';
 
 import type { Value } from './Value.js';
@@ -387,7 +392,7 @@ export class BaseSmartState<
 
   $set(nextState: Partial<Props>): void {
     const { _state } = this;
-    if (_state === nextState) return;
+    if (_state === nextState || objectEmpty(nextState)) return;
 
     const hadDraft = this._draft != null;
     const _draft = this._draft || (this._draft = { ..._state });
