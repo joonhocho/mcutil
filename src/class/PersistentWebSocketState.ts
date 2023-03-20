@@ -80,7 +80,7 @@ export const PersistentWebSocketState = defineSmartState<
       ws: {
         type: 'object',
         toJSON: false,
-        didSet(next, prev, draft) {
+        willSet(next, prev, draft) {
           if (next) draft.status = getWebSocketReadyState(next) || 'connecting';
         },
       },
@@ -104,17 +104,10 @@ export const PersistentWebSocketState = defineSmartState<
         valid(next) {
           return typeof next === 'number' && next >= 0 && isFinite(next);
         },
-        normalize(next) {
+        normalize(next, prev, draft) {
+          if (next > (draft.delayMax || 0)) return draft.delayMax || 0;
+          if (next < (draft.delayMin || 0)) return draft.delayMin || 0;
           return Math.round(next);
-        },
-        willSet(next, prev, draft) {
-          if (next != null) {
-            if (next > draft.delayMax) {
-              draft.delay = draft.delayMax;
-            } else if (next < draft.delayMin) {
-              draft.delay = draft.delayMin;
-            }
-          }
         },
       },
       delayMin: {

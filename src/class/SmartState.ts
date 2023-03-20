@@ -1,3 +1,4 @@
+import { addItem } from '../array.js';
 import {
   objectEmpty,
   objectHasKeyOfValue,
@@ -5,19 +6,18 @@ import {
   objectMap,
 } from '../object.js';
 import { CleanUpMap } from './CleanUpMap.js';
+import {
+  ComputeGraphNode,
+  InvalidPropertyValueError,
+} from './ComputeGraphNode.js';
 
 import type { Value } from './Value.js';
 
 import type { KeyOf, VoidFunction } from '../types/types.js';
+
 export class PropertyNameConflictError extends Error {
   constructor(key: string) {
     super(`Property name conflict. name=${String(key)}`);
-  }
-}
-
-export class InvalidPropertyValueError extends Error {
-  constructor(key: string, value: any) {
-    super(`Invalid value for ${String(key)}`);
   }
 }
 
@@ -139,6 +139,7 @@ export interface IComputedProperty<
   Key extends ComputedKeys
 > extends IProperty<Props, ComputedKeys, Methods, Config, Key> {
   deps: Array<Exclude<KeyOf<Props>, Key>>;
+  mutates?: Array<Exclude<KeyOf<Props>, Key>>;
   get(
     this: SmartState<Props, ComputedKeys, Methods, Config>,
     state: Omit<Props, ComputedKeys> & Partial<Pick<Props, ComputedKeys>>
@@ -303,6 +304,12 @@ export class BaseSmartState<
     return {} as any;
   }
 
+  protected get _computeGraphNodes(): {
+    [Key in KeyOf<Props>]: ComputeGraphNode<Props, Key>;
+  } {
+    return {} as any;
+  }
+
   protected get _onDrafts(): Array<
     IDraftWatcher<Props, ComputedKeys, Methods, Config>
   > {
@@ -315,31 +322,25 @@ export class BaseSmartState<
   ) {
     this.$config = config;
 
-    const { _computedKeys, _computed } = this;
+    const { _computeGraphNodes } = this;
 
-    const draft = { ...initialState };
-
-    for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
-      const key = _computedKeys[i];
-      draft[key] = _computed[key].get.call(this as any, draft);
+    const draft = { ...initialState } as Props;
+    for (let key in draft) {
+      const node = _computeGraphNodes[key];
+      node.changed = false;
+      node.checked = false;
+      node.value = draft[key];
     }
 
-    for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
-      const key = _computedKeys[i];
-      if (key in initialState) {
-        _computed[key].set?.call(
-          this as any,
-          initialState[key] as Props[ComputedKeys],
-          draft
-        );
-      }
+    for (let key in draft) {
+      _computeGraphNodes[key].check(draft, this);
     }
 
-    this.$clearWatchers();
+    this._watchers = [];
 
     this._state = {} as Props;
 
-    this._draft = draft as Props;
+    this._draft = draft;
 
     this._commitDraft();
   }
@@ -370,46 +371,73 @@ export class BaseSmartState<
     return this.$state[key];
   }
 
+  protected _resetComputeNodes(draft: Props) {
+    const { _keys, _computeGraphNodes } = this;
+    for (let i = 0, il = _keys.length; i < il; i += 1) {
+      const key = _keys[i];
+      _computeGraphNodes[key].reset(draft[key]);
+    }
+  }
+
   $set(nextState: Partial<Props>): void {
     if (this._destroyed || objectEmpty(nextState)) return;
 
-    const isNotCommitting = this._draft == null;
-    const { $state } = this;
+    const isNewCommit = this._draft == null;
     const draft = this._draft || (this._draft = { ...this._state });
 
-    let changed = false;
+    this._resetComputeNodes(draft);
 
-    const { _keys } = this;
-    for (let i = 0, il = _keys.length; i < il; i += 1) {
-      const key = _keys[i];
-      if (key in nextState && nextState[key] !== $state[key]) {
+    const changeKeys: KeyOf<Props>[] = [];
+
+    const { $state, _computeGraphNodes } = this;
+    for (let key in nextState) {
+      if (nextState[key] !== $state[key]) {
+        changeKeys.push(key);
+
         draft[key] = nextState[key]!;
-        changed = true;
+        _computeGraphNodes[key].checked = false;
       }
     }
-    // TODO normalize and compute
 
-    if (isNotCommitting) {
-      // draft was null
-
-      if (changed) {
-        this._commitDraft();
-      } else {
-        this._draft = null;
-      }
+    if (changeKeys.length === 0) {
+      if (isNewCommit) this._draft = null;
+      return;
     }
+
+    try {
+      for (let i = 0, il = changeKeys.length; i < il; i += 1) {
+        _computeGraphNodes[changeKeys[i]].check(draft, this);
+      }
+    } catch (e) {
+      if (isNewCommit) this._draft = null;
+      // TODO else rollback();
+      throw e;
+    }
+
+    if (isNewCommit) this._commitDraft();
   }
 
   $setKey<Key extends KeyOf<Props>>(key: Key, val: Props[Key]): void {
     if (this._destroyed || this.$state[key] === val) return;
 
-    const isNotCommitting = this._draft == null;
+    const isNewCommit = this._draft == null;
     const draft = this._draft || (this._draft = { ...this._state });
 
-    draft[key] = val;
-    // TODO normalize and compute
+    this._resetComputeNodes(draft);
 
-    if (isNotCommitting) this._commitDraft();
+    draft[key] = val;
+
+    this._computeGraphNodes[key].checked = false;
+
+    try {
+      this._computeGraphNodes[key].check(draft, this);
+    } catch (e) {
+      if (isNewCommit) this._draft = null;
+      // TODO else rollback();
+      throw e;
+    }
+
+    if (isNewCommit) this._commitDraft();
   }
 
   $update(
@@ -557,6 +585,7 @@ export class BaseSmartState<
           compute,
           //mutates,
         } = _onDrafts[j];
+
         if (objectHasKeyOfValue(dirty, deps, 1)) {
           compute.call(this as any, draft, prevDraft);
         }
@@ -907,9 +936,30 @@ export function defineSmartState<
   const _onDrafts: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> =
     [...superPrototype._onDrafts];
 
+  const computeGraphNodes = objectMap(
+    superPrototype._computeGraphNodes,
+    (node: ComputeGraphNode<Props, KeyOf<Props>>) => node.clone()
+  ) as any;
+
+  for (let i = 0, il = _propKeys.length; i < il; i += 1) {
+    const key = _propKeys[i];
+    const { normalize, valid, equals } = properties[key];
+
+    computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
+      computeGraphNodes,
+      key,
+      [],
+      undefined,
+      undefined,
+      normalize,
+      valid,
+      equals
+    );
+  }
+
   for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
     const key = _computedKeys[i];
-    const { deps, get, set } = computed[key];
+    const { deps, mutates, get, set, normalize, valid, equals } = computed[key];
     _onDrafts.push({
       deps,
       mutates: [key],
@@ -917,7 +967,8 @@ export function defineSmartState<
         nextState[key] = get.call(this, nextState);
       },
     });
-    if (typeof set === 'function') {
+
+    if (set != null) {
       _onDrafts.push({
         deps: [key],
         mutates: deps,
@@ -926,6 +977,21 @@ export function defineSmartState<
         },
       });
     }
+
+    for (let i = 0, il = deps.length; i < il; i += 1) {
+      addItem(computeGraphNodes[deps[i]].invalidates, key);
+    }
+
+    computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
+      computeGraphNodes,
+      key,
+      mutates ?? (set == null ? [] : deps.slice()),
+      get,
+      set as any,
+      normalize,
+      valid,
+      equals
+    );
   }
 
   _onDrafts.push(...drafts);
@@ -994,6 +1060,12 @@ export function defineSmartState<
         ...superPrototype._computed,
         ...computed,
       },
+    },
+    _computeGraphNodes: {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: computeGraphNodes,
     },
     _onDrafts: {
       configurable: true,
