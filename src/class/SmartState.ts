@@ -329,16 +329,16 @@ export class BaseSmartState<
     for (let i = 0, il = _keys.length; i < il; i += 1) {
       const key = _keys[i];
       const node = _computeGraphNodes[key];
-      node.changed = false;
-      node.checked = false;
+      node.unchanged = true; // not really meaningful, since dirty is true. will be recalculated anyways
+      node.dirty = true;
       node.value = draft[key];
     }
 
     for (let key in draft) {
-      _computeGraphNodes[key].check(draft, this);
+      _computeGraphNodes[key].checkDeep(draft, this);
     }
     for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
-      _computeGraphNodes[_computedKeys[i]].check(draft, this);
+      _computeGraphNodes[_computedKeys[i]].checkDeep(draft, this);
     }
 
     this._watchers = [];
@@ -400,7 +400,7 @@ export class BaseSmartState<
         changeKeys.push(key);
 
         draft[key] = nextState[key]!;
-        _computeGraphNodes[key].checked = false;
+        _computeGraphNodes[key].dirty = true;
       }
     }
 
@@ -411,7 +411,7 @@ export class BaseSmartState<
 
     try {
       for (let i = 0, il = changeKeys.length; i < il; i += 1) {
-        _computeGraphNodes[changeKeys[i]].check(draft, this);
+        _computeGraphNodes[changeKeys[i]].checkDeep(draft, this);
       }
     } catch (e) {
       if (isNewCommit) this._draft = null;
@@ -432,10 +432,10 @@ export class BaseSmartState<
 
     draft[key] = val;
 
-    this._computeGraphNodes[key].checked = false;
+    this._computeGraphNodes[key].dirty = true;
 
     try {
-      this._computeGraphNodes[key].check(draft, this);
+      this._computeGraphNodes[key].checkDeep(draft, this);
     } catch (e) {
       if (isNewCommit) this._draft = null;
       // TODO else rollback();

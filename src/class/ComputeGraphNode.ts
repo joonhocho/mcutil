@@ -6,31 +6,25 @@ export class InvalidPropertyValueError extends Error {
   }
 }
 
-export class ComputeGraphNode<
-  Struct,
-  Key extends KeyOf<Struct> = KeyOf<Struct>
-> {
-  changed = false;
-  checked = true;
-  value!: Struct[Key];
+export class ComputeGraphNode<T, Key extends KeyOf<T> = KeyOf<T>> {
+  unchanged = true;
+  dirty = false;
+  value!: T[Key];
 
   constructor(
-    public nodeMap: Record<KeyOf<Struct>, ComputeGraphNode<Struct>>,
+    public nodeMap: Record<KeyOf<T>, ComputeGraphNode<T>>,
     public key: Key,
-    public invalidates: Array<KeyOf<Struct>> = [],
-    public getter?: (obj: Struct) => Struct[Key],
-    public setter?: (value: Struct[Key], obj: Partial<Struct>) => void,
-    public normalize?: (
-      nextVal: Struct[Key],
-      prevVal: Struct[Key],
-      obj: Struct
-    ) => Struct[Key],
-    public valid?: (a: Struct[Key], obj: Struct) => boolean,
-    public equals?: (a: Struct[Key], b: Struct[Key]) => boolean
+    public invalidates: Array<KeyOf<T>> = [],
+    public getter?: (obj: T) => T[Key],
+    public setter?: (value: T[Key], obj: Partial<T>) => void,
+    public normalize?: (nextVal: T[Key], prevVal: T[Key], obj: T) => T[Key],
+    public valid?: (a: T[Key], obj: T) => boolean,
+    public equals?: (a: T[Key], b: T[Key]) => boolean,
+    public compute?: (next: T, thisArg: any) => void
   ) {}
 
-  clone(): ComputeGraphNode<Struct, Key> {
-    return new ComputeGraphNode<Struct, Key>(
+  clone(): ComputeGraphNode<T, Key> {
+    return new ComputeGraphNode<T, Key>(
       this.nodeMap,
       this.key,
       this.invalidates.slice(),
@@ -38,19 +32,24 @@ export class ComputeGraphNode<
       this.setter,
       this.normalize,
       this.valid,
-      this.equals
+      this.equals,
+      this.compute
     );
   }
 
-  reset(value: Struct[Key]) {
-    this.changed = false;
-    this.checked = true;
+  reset(value: T[Key]) {
+    this.unchanged = true;
+    this.dirty = false;
     this.value = value;
   }
 
-  check(next: Struct, thisArg: any) {
-    if (this.checked) return;
-    this.checked = true;
+  // returns unchanged
+  checkUnchanged(next: T, thisArg: any): boolean {
+    // already clean
+    if (!this.dirty) return true;
+
+    // set clean
+    this.dirty = false;
 
     const { key } = this;
 
@@ -66,8 +65,8 @@ export class ComputeGraphNode<
 
     // check changed
 
-    this.changed = nextVal !== prevVal;
-    if (!this.changed) return;
+    this.unchanged = nextVal === prevVal;
+    if (this.unchanged) return true;
 
     if (this.normalize != null) {
       nextVal =
@@ -80,8 +79,8 @@ export class ComputeGraphNode<
             next
           );
 
-      this.changed = nextVal !== prevVal;
-      if (!this.changed) return;
+      this.unchanged = nextVal === prevVal;
+      if (this.unchanged) return true;
     }
 
     if (this.valid != null && !this.valid.call(this, nextVal, next)) {
@@ -89,8 +88,11 @@ export class ComputeGraphNode<
     }
 
     if (this.equals != null && prevVal !== undefined) {
-      this.changed = !this.equals.call(thisArg, nextVal, prevVal);
-      if (!this.changed) return;
+      this.unchanged = !!this.equals.call(thisArg, nextVal, prevVal);
+      if (this.unchanged) {
+        this.value = next[key] = prevVal;
+        return true;
+      }
     }
 
     // changed
@@ -98,16 +100,22 @@ export class ComputeGraphNode<
       this.setter.call(thisArg, nextVal, next);
     }
 
+    return false;
+  }
+
+  checkDeep(next: T, thisArg: any): void {
+    if (this.checkUnchanged(next, thisArg)) return;
+
     const { invalidates } = this;
     if (invalidates.length) {
       const { nodeMap } = this;
 
       for (let i = 0, il = invalidates.length; i < il; i += 1) {
-        nodeMap[invalidates[i]].checked = false;
+        nodeMap[invalidates[i]].dirty = true;
       }
 
       for (let i = 0, il = invalidates.length; i < il; i += 1) {
-        nodeMap[invalidates[i]].check(next, thisArg);
+        nodeMap[invalidates[i]].checkDeep(next, thisArg);
       }
     }
   }
