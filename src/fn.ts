@@ -1,4 +1,6 @@
-import type { AnyFunction } from './types/types.js';
+import { arraysEqual } from './array.js';
+
+import type { AnyFunction, ThisArg } from './types/types.js';
 
 // To avoid eslint@typescript-eslint/no-unused-expressions
 export const noop = (...args: any[]) => {};
@@ -83,3 +85,52 @@ export const funcLimitCallCount = <F extends AnyFunction>(
 
     return cacheFn.apply(this, arguments as any);
   } as F;
+
+export interface MemoizedFunc<F extends AnyFunction> {
+  (...args: Parameters<F>): ReturnType<F>;
+  set(thisArg: ThisArg<F>, args: Parameters<F>, ret: ReturnType<F>): void;
+  clear(): void;
+  destroy(): void;
+}
+
+export function funcMemoize<F extends AnyFunction>(fn: F): MemoizedFunc<F> {
+  let _memo: {
+    thisArg: ThisArg<F>;
+    args: Parameters<F>;
+    ret: ReturnType<F>;
+  } | null = null;
+
+  function memoized(this: ThisArg<F>) {
+    if (
+      _memo != null &&
+      _memo.thisArg === this &&
+      arraysEqual(_memo.args, arguments)
+    ) {
+      return _memo.ret;
+    }
+
+    const ret = fn.apply(this, arguments as unknown as Parameters<F>);
+    _memo = { thisArg: this, args: arguments as unknown as Parameters<F>, ret };
+
+    return ret;
+  }
+
+  memoized.set = (
+    thisArg: ThisArg<F>,
+    args: Parameters<F>,
+    ret: ReturnType<F>
+  ): void => {
+    _memo = { thisArg, args, ret };
+  };
+
+  memoized.clear = (): void => {
+    _memo = null;
+  };
+
+  memoized.destroy = (): void => {
+    _memo = null;
+    fn = noop as F;
+  };
+
+  return memoized as MemoizedFunc<F>;
+}

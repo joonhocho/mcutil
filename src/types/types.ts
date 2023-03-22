@@ -42,3 +42,10 @@ export interface IPoint {
   x: number;
   y: number;
 }
+
+export type ThisArg<F extends AnyFunction> = F extends (
+  this: infer T,
+  ...any: any[]
+) => any
+  ? T
+  : never;

@@ -12,7 +12,7 @@ export class Debounce<T extends AnyFunction> {
   destroy(): void {
     this._args = null;
     this._timer.destroy();
-    this.fn = noop as any;
+    this.fn = noop as T;
   }
 
   debounced = (...args: Parameters<T>): void => {

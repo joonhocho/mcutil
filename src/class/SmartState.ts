@@ -6,6 +6,7 @@ import {
   objectMap,
 } from '../object.js';
 import { CleanUpMap } from './CleanUpMap.js';
+import { ComputeGraph } from './ComputeGraph.js';
 import {
   ComputeGraphNode,
   InvalidPropertyValueError,
@@ -14,7 +15,6 @@ import {
 import type { Value } from './Value.js';
 
 import type { KeyOf, VoidFunction } from '../types/types.js';
-
 export class PropertyNameConflictError extends Error {
   constructor(key: string) {
     super(`Property name conflict. name=${String(key)}`);
@@ -192,6 +192,7 @@ export interface ISmartStateConfig<
       Key
     >;
   };
+  computes?: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>>;
   drafts?: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>>;
 }
 
@@ -304,10 +305,20 @@ export class BaseSmartState<
     return {} as any;
   }
 
+  protected get _computeGraph(): ComputeGraph<KeyOf<Props>> {
+    return new ComputeGraph<KeyOf<Props>>();
+  }
+
   protected get _computeGraphNodes(): {
     [Key in KeyOf<Props>]: ComputeGraphNode<Props, Key>;
   } {
     return {} as any;
+  }
+
+  protected get _computes(): Array<
+    IDraftWatcher<Props, ComputedKeys, Methods, Config>
+  > {
+    return [];
   }
 
   protected get _onDrafts(): Array<
@@ -333,6 +344,10 @@ export class BaseSmartState<
       node.dirty = true;
       node.value = draft[key];
     }
+
+    this._computeGraph.run(
+      (key, graph) => !this._normalizeKeyAndReturnChanged(draft, key, undefined)
+    );
 
     for (let key in draft) {
       _computeGraphNodes[key].checkDeep(draft, this);
@@ -898,6 +913,7 @@ export function defineSmartState<
     statics,
     properties,
     computed,
+    computes = [],
     drafts = [],
   }: ISmartStateConfig<Props, ComputedKeys, Methods, Config, SuperPropKeys>,
   NewSmartStateClass: new (
@@ -938,8 +954,15 @@ export function defineSmartState<
 
   const _toJSONKeys: Array<KeyOf<Props>> = [...superPrototype._toJSONKeys];
 
+  const _computes: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> =
+    [...superPrototype._computes];
+
   const _onDrafts: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> =
     [...superPrototype._onDrafts];
+
+  const computeGraph = (
+    superPrototype._computeGraph as ComputeGraph<KeyOf<Props>>
+  ).clone();
 
   const computeGraphNodes = objectMap(
     superPrototype._computeGraphNodes,
@@ -949,6 +972,8 @@ export function defineSmartState<
   for (let i = 0, il = _propKeys.length; i < il; i += 1) {
     const key = _propKeys[i];
     const { normalize, valid, equals } = properties[key];
+
+    computeGraph.addKey(key);
 
     computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
       computeGraphNodes,
@@ -973,6 +998,8 @@ export function defineSmartState<
       },
     });
 
+    computeGraph.addDependees(key, deps);
+
     if (set != null) {
       _onDrafts.push({
         deps: [key],
@@ -981,6 +1008,8 @@ export function defineSmartState<
           set.call(this, nextState[key], nextState);
         },
       });
+
+      computeGraph.addDependers(key, deps);
     }
 
     computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
@@ -1004,7 +1033,18 @@ export function defineSmartState<
     }
   }
 
+  for (let i = 0, il = computes.length; i < il; i += 1) {
+    const { deps, mutates } = computes[i];
+
+    for (let di = 0, dl = deps.length; di < dl; di += 1) {
+      const dep = deps[di];
+      computeGraph.addDependers(dep, mutates);
+    }
+  }
+
+  _computes.push(...computes);
   _onDrafts.push(...drafts);
+  computeGraph.prepareByComplexity();
 
   Object.defineProperties(prototype, {
     _propKeys: {
@@ -1071,11 +1111,23 @@ export function defineSmartState<
         ...computed,
       },
     },
+    _computeGraph: {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: computeGraph,
+    },
     _computeGraphNodes: {
       configurable: true,
       enumerable: false,
       writable: true,
       value: computeGraphNodes,
+    },
+    _computes: {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: _onDrafts,
     },
     _onDrafts: {
       configurable: true,

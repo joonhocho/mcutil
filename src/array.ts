@@ -1,8 +1,9 @@
 import { KeyType } from './types/types.js';
 
-export const arrayFirstItem = <T>(arr: T[]): T | undefined => arr[0];
+export const arrayFirstItem = <T>(arr: T[] | ArrayLike<T>): T | undefined =>
+  arr[0];
 
-export const arrayLastItem = <T>(arr: T[]): T | undefined =>
+export const arrayLastItem = <T>(arr: T[] | ArrayLike<T>): T | undefined =>
   arr[arr.length - 1];
 
 export function arrayConcatInPlace<T>(arr: T[], ...lists: T[][]): T[];
@@ -180,16 +181,21 @@ export const replaceItem = <T>(
 export const withoutNil = <T>(arr: Array<T | null | undefined>): T[] =>
   arr.filter((x) => x != null) as T[];
 
+export interface ArrayLike<T> {
+  [index: number]: T;
+  length: number;
+}
+
 export const arraysEqual = <T>(
-  a1: T[],
-  a2: T[],
+  a1: T[] | ArrayLike<T>,
+  a2: T[] | ArrayLike<T>,
   itemsEqual?: (a: T, b: T) => boolean
 ): boolean => {
   if (a1 === a2) return true;
 
   if (a1.length !== a2.length) return false;
 
-  if (itemsEqual) {
+  if (itemsEqual != null) {
     for (let i = 0, l = a1.length; i < l; i += 1) {
       if (!itemsEqual(a1[i], a2[i])) return false;
     }
@@ -270,7 +276,7 @@ export const moveItem = <T>(arr: T[], index: number, delta: number): T[] => {
 };
 
 export const keysToMap = <T extends KeyType, V>(
-  arr: T[],
+  arr: T[] | ArrayLike<T>,
   val: V
 ): Record<string, V> => {
   const map: Record<string, V> = {};
@@ -281,7 +287,7 @@ export const keysToMap = <T extends KeyType, V>(
 };
 
 export const arrayToMap = <T>(
-  arr: T[],
+  arr: T[] | ArrayLike<T>,
   getKey: (item: T) => string | number
 ): Record<string, T> => {
   const map: Record<string, T> = {};
