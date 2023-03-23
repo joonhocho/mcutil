@@ -4,7 +4,7 @@ import type {
   KeyWatcher,
   SmartState,
   StateWatcher,
-} from '../class/SmartState.js';
+} from '../class/SmartStateTypes.js';
 
 import type { KeyOf } from '../types/types.js';
 
