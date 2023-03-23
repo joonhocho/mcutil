@@ -353,3 +353,65 @@ export const arrayMutate = <Out, T>(
   }
   return out;
 };
+
+export const arrayFindClosest = <T>(
+  unsortedArr: T[],
+  diff: (item: T) => number
+): number => {
+  const { length } = unsortedArr;
+  if (length < 1) return -1;
+
+  if (length === 1) return 0;
+
+  let minDiff = Infinity;
+  let minIndex = -1;
+  for (let i = 0, il = unsortedArr.length; i < il; i += 1) {
+    const d = Math.abs(diff(unsortedArr[i]));
+    if (d < minDiff) {
+      minDiff = d;
+      minIndex = i;
+    }
+  }
+  return minIndex;
+};
+
+// find closest to given target using binary search.
+// Returns element closest to target in arr[]
+// https://www.geeksforgeeks.org/find-closest-number-array/
+export const arrayBinarySearchClosest = <T>(
+  sortedArr: T[],
+  diff: (item: T) => number // negative=search left, 0=match, positive=search right
+): number => {
+  const { length } = sortedArr;
+  if (length < 1) return -1;
+
+  if (length === 1) return 0;
+
+  // Corner cases
+  if (diff(sortedArr[0]) <= 0) return 0;
+
+  const lastIndex = length - 1;
+  if (diff(sortedArr[lastIndex]) >= 0) return lastIndex;
+
+  // Doing binary search
+  let low = 0,
+    high = length,
+    mid = 0;
+  while (low <= high) {
+    mid = Math.floor((low + high) / 2);
+
+    const d = diff(sortedArr[mid]);
+    if (d === 0) return mid;
+    if (d < 0) {
+      // search left
+      high = mid - 1;
+    } else {
+      // search right
+      low = mid + 1;
+    }
+  }
+
+  return Math.abs(diff(sortedArr[low])) <= Math.abs(diff(sortedArr[high]))
+    ? low
+    : high;
+};

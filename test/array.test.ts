@@ -1,8 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   addItem,
+  arrayBinarySearchClosest,
   arrayConcatInPlace,
   arrayFilterInPlace,
+  arrayFindClosest,
   arrayFirstItem,
   arrayIndexModulo,
   arrayIntersection,
@@ -589,5 +591,29 @@ describe('array', () => {
     expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 1)).toEqual([2, 3, 2, 3]);
     expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 2)).toEqual([1, 3, 1, 3]);
     expect(arrayRemoveManyInPlace([1, 2, 3, 1, 2, 3], 3)).toEqual([1, 2, 1, 2]);
+  });
+
+  test('arrayFindClosest / arrayBinarySearchClosest', () => {
+    expect(arrayBinarySearchClosest([], (x) => 0)).toBe(-1);
+    expect(arrayBinarySearchClosest([], (x) => 1 - x)).toBe(-1);
+    expect(arrayBinarySearchClosest([0], (x) => 0)).toBe(0);
+    expect(arrayBinarySearchClosest([0], (x) => 999 - x)).toBe(0);
+    expect(arrayBinarySearchClosest([6, 7, 8], (x) => 5 - x)).toBe(0);
+    expect(arrayBinarySearchClosest([1, 2, 3], (x) => 5 - x)).toBe(2);
+    expect(arrayBinarySearchClosest([1, 2, 3, 4, 5], (x) => 5 - x)).toBe(4);
+    expect(arrayBinarySearchClosest([5], (x) => 5 - x)).toBe(0);
+    expect(arrayBinarySearchClosest([5, 6], (x) => 5 - x)).toBe(0);
+    expect(arrayBinarySearchClosest([4, 5], (x) => 5 - x)).toBe(1);
+    expect(arrayBinarySearchClosest([5, 6, 7], (x) => 5 - x)).toBe(0);
+    expect(arrayBinarySearchClosest([4, 5, 6], (x) => 5 - x)).toBe(1);
+    expect(arrayBinarySearchClosest([3, 4, 5], (x) => 5 - x)).toBe(2);
+
+    for (let i = 0; i < 1000; i += 1) {
+      const nums = numberRange(0, 1, Math.random());
+      const n = Math.random();
+      expect(arrayBinarySearchClosest(nums, (x) => n - x)).toBe(
+        arrayFindClosest(nums, (x) => n - x)
+      );
+    }
   });
 });
