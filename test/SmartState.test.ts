@@ -1,10 +1,8 @@
 import { expect, test } from '@jest/globals';
 import { arraysEqual } from '../src/array.js';
-import {
-  BaseSmartState,
-  SmartState,
-  defineSmartState,
-} from '../src/class/SmartState.js';
+import { BaseSmartState, defineSmartState } from '../src/class/SmartState.js';
+
+import type { SmartState } from '../src/class/SmartStateTypes.js';
 
 test('SmartState', () => {
   interface Props {
@@ -60,10 +58,10 @@ test('SmartState', () => {
           get({ firstName, lastName }) {
             return [firstName, lastName].filter((x) => x).join(' ');
           },
-          set(fullName, draft) {
+          set(update, fullName) {
             const [firstName, lastName] = fullName.trim().split(/\s+/g);
-            draft.firstName = firstName;
-            draft.lastName = lastName;
+            if (firstName !== update.firstName) update.firstName = firstName;
+            if (lastName !== update.lastName) update.lastName = lastName;
           },
         },
       },
@@ -113,12 +111,12 @@ test('SmartState', () => {
           },
         },
       },
-      drafts: [
+      computes: [
         {
           deps: ['left', 'top', 'desc'],
           mutates: ['leftTop'],
-          compute(draft) {
-            draft.leftTop = [draft.left, draft.top].sort(
+          compute(update, draft) {
+            update.leftTop = [draft.left, draft.top].sort(
               draft.desc ? (a, b) => b - a : (a, b) => a - b
             );
           },
@@ -441,38 +439,38 @@ test('Chained Computed', () => {
         get(s) {
           return 2 * s.x2;
         },
-        set(x4, s) {
-          s.x2 = x4 / 2;
+        set(update, x4, s) {
+          update.x2 = x4 / 2;
         },
       },
     },
-    drafts: [
+    computes: [
       {
         deps: ['x4'],
         mutates: ['x8'],
-        compute(draft) {
-          draft.x8 = 2 * draft.x4;
+        compute(update, draft) {
+          update.x8 = 2 * draft.x4;
         },
       },
       {
         deps: ['x8'],
         mutates: ['x4'],
-        compute(draft) {
-          draft.x4 = draft.x8 / 2;
+        compute(update, draft) {
+          update.x4 = draft.x8 / 2;
         },
       },
       {
         deps: ['x'],
         mutates: ['x2'],
-        compute(draft) {
-          draft.x2 = 2 * draft.x;
+        compute(update, draft) {
+          update.x2 = 2 * draft.x;
         },
       },
       {
         deps: ['x2'],
         mutates: ['x'],
-        compute(draft) {
-          draft.x = draft.x2 / 2;
+        compute(update, draft) {
+          update.x = draft.x2 / 2;
         },
       },
     ],
@@ -549,14 +547,15 @@ test('willSet mutates state', () => {
       a2: {
         type: 'number',
         deps: ['a'],
+        mutates: ['a'],
         enumerable: true,
         get(s) {
           log.push(['a2.get', 2 * s.a]);
           return 2 * s.a;
         },
-        set(a2, s) {
+        set(update, a2, s) {
           log.push(['a2.set', a2]);
-          s.a = a2 / 2;
+          update.a = a2 / 2;
         },
         willSet(next, prev, draft) {
           log.push(['a2.willSet', next, prev]);
@@ -566,20 +565,22 @@ test('willSet mutates state', () => {
         },
       },
     },
+    computes: [
+      {
+        deps: ['a2'],
+        mutates: ['a4'],
+        compute(update, draft) {
+          log.push(['a2.draft', draft.a2]);
+          update.a4 = 2 * draft.a2;
+        },
+      },
+    ],
     drafts: [
       {
         deps: ['a'],
         mutates: [],
-        compute(draft) {
+        compute(update, draft) {
           log.push(['a.draft', draft.a]);
-        },
-      },
-      {
-        deps: ['a2'],
-        mutates: ['a4'],
-        compute(draft) {
-          log.push(['a2.draft', draft.a2]);
-          draft.a4 = 2 * draft.a2;
         },
       },
     ],

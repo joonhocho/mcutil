@@ -49,3 +49,13 @@ export type ThisArg<F extends AnyFunction> = F extends (
 ) => any
   ? T
   : never;
+
+export type WithRequiredProps<T, Key extends keyof T> = T & {
+  [P in Key]-?: T[P];
+};
+
+export type WithOptionalProps<T, Key extends keyof T> = Partial<T> & {
+  [P in Exclude<keyof T, Key>]: T[P];
+};
+
+export interface IEmptyInterface {}

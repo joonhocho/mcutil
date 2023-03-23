@@ -72,7 +72,7 @@ describe('ComputeGraph', () => {
 
     graph.run((key, graph) => {
       calls.push(key);
-      return true;
+      return false;
     });
 
     expect(calls).toEqual(graph.keys);
@@ -82,7 +82,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['a', 'f', 'd']
     );
@@ -94,7 +94,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['a', 'f', 'd'],
       true
@@ -107,7 +107,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['f', 'b', 'g']
     );
@@ -122,7 +122,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return (visits.get(key) || 0) > 0;
+        return (visits.get(key) || 0) === 0;
       },
       ['f', 'b', 'g']
     );
@@ -168,7 +168,7 @@ describe('ComputeGraph', () => {
 
     graph.run((key, graph) => {
       calls.push(key);
-      return true;
+      return false;
     });
 
     expect(calls).toEqual(graph.keys);
@@ -180,7 +180,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['a']
     );
@@ -194,7 +194,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['b']
     );
@@ -212,7 +212,7 @@ describe('ComputeGraph', () => {
       calls.push(key);
       const count = visits.get(key) || 0;
       visits.set(key, count + 1);
-      return count > 0;
+      return count === 0;
     });
 
     expect(calls).toEqual(['a', 'b', 'b', 'a']);
@@ -227,7 +227,7 @@ describe('ComputeGraph', () => {
         calls.push(key);
         const count = visits.get(key) || 0;
         visits.set(key, count + 1);
-        return count > 0;
+        return count === 0;
       },
       ['a']
     );
@@ -244,7 +244,7 @@ describe('ComputeGraph', () => {
         calls.push(key);
         const count = visits.get(key) || 0;
         visits.set(key, count + 1);
-        return count > 0;
+        return count === 0;
       },
       ['b']
     );
@@ -292,7 +292,7 @@ describe('ComputeGraph', () => {
 
     graph.run((key, graph) => {
       calls.push(key);
-      return true;
+      return false;
     });
 
     expect(calls).toEqual(graph.keys);
@@ -304,7 +304,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['a']
     );
@@ -318,7 +318,7 @@ describe('ComputeGraph', () => {
     graph.run(
       (key, graph) => {
         calls.push(key);
-        return true;
+        return false;
       },
       ['b']
     );
@@ -336,7 +336,7 @@ describe('ComputeGraph', () => {
       calls.push(key);
       const count = visits.get(key) || 0;
       visits.set(key, count + 1);
-      return count > 0;
+      return count === 0;
     });
 
     expect(calls).toEqual(['a', 'b', 'c', 'b', 'c', 'a']);
@@ -351,7 +351,7 @@ describe('ComputeGraph', () => {
         calls.push(key);
         const count = visits.get(key) || 0;
         visits.set(key, count + 1);
-        return count > 0;
+        return count === 0;
       },
       ['a']
     );
@@ -368,7 +368,7 @@ describe('ComputeGraph', () => {
         calls.push(key);
         const count = visits.get(key) || 0;
         visits.set(key, count + 1);
-        return count > 0;
+        return count === 0;
       },
       ['b']
     );
@@ -391,7 +391,7 @@ describe('ComputeGraph', () => {
       calls.push(key);
       const count = visits.get(key) || 0;
       visits.set(key, count + 1);
-      return count > 0;
+      return count === 0;
     });
 
     expect(calls).toEqual(['d', 'a', 'b', 'c', 'a', 'b', 'c', 'a']);
@@ -405,7 +405,7 @@ describe('ComputeGraph', () => {
       calls.push(key);
       const count = visits.get(key) || 0;
       visits.set(key, count + 1);
-      return count > 0;
+      return count === 0;
     });
 
     expect(calls).toEqual(['a', 'b', 'c', 'b', 'c', 'a']);

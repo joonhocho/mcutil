@@ -25,7 +25,7 @@ export const objectMap = <T extends object, U>(
 ): { [K in KeyOf<T>]: U } => {
   const dest = {} as { [K in KeyOf<T>]: U };
   const { hasOwnProperty } = Object.prototype;
-  for (const key in obj) {
+  for (let key in obj) {
     if (hasOwnProperty.call(obj, key)) {
       dest[key] = fn(obj[key], key, obj);
     }
@@ -105,7 +105,7 @@ export const objectToArray = <T>(
   filter: (value: T[KeyOf<T>], key: KeyOf<T>, obj: T) => unknown
 ): Array<T[KeyOf<T>]> => {
   const arr: Array<T[KeyOf<T>]> = [];
-  for (const key in obj) {
+  for (let key in obj) {
     if (filter(obj[key], key, obj)) {
       arr.push(obj[key]);
     }

@@ -1,20 +1,33 @@
-import { addItem } from '../array.js';
 import {
   objectEmpty,
   objectHasKeyOfValue,
   objectKeys,
   objectMap,
 } from '../object.js';
+import { randomString } from '../string.js';
 import { CleanUpMap } from './CleanUpMap.js';
 import { ComputeGraph } from './ComputeGraph.js';
 import {
-  ComputeGraphNode,
-  InvalidPropertyValueError,
-} from './ComputeGraphNode.js';
+  ISmartStateComputeNode,
+  ISmartStateKeyComputeNodeConfig,
+  SmartStateComputeNode,
+  SmartStateKeyComputeNode,
+} from './SmartStateComputeNode.js';
 
-import type { Value } from './Value.js';
+import type { IEmptyInterface, KeyOf, VoidFunction } from '../types/types.js';
+import type {
+  IComputedProperty,
+  IDraftWatcher,
+  IProperty,
+  ISmartStateConfig,
+  KeyWatcher,
+  SmartState,
+  SmartStateConstructor,
+  SmartStateInitialState,
+  StateWatcher,
+  WatcherInfo,
+} from './SmartStateTypes.js';
 
-import type { KeyOf, VoidFunction } from '../types/types.js';
 export class PropertyNameConflictError extends Error {
   constructor(key: string) {
     super(`Property name conflict. name=${String(key)}`);
@@ -28,204 +41,17 @@ export class TooManyDirtyCheckIterationError extends Error {
 }
 
 /*
+TODO
 atomic/reversable operations
 undo/redo by reversing or reapplying operations
-sync by applying operations
 nested states: array/object
 */
 
-export interface IStateOperation {
-  type: string;
-  timestamp: number;
-  data: any;
-}
-
-export interface ISetMultiOperation<Props> extends IStateOperation {
-  type: 'SET_MULTI';
-  data: {
-    prev: Partial<Props>;
-    next: Partial<Props>;
-  };
-}
-
-export type KeyWatcher<Props, Key extends KeyOf<Props>> = (
-  next: Props[Key],
-  prev: Props[Key],
-  nextState: Props,
-  prevState: Props
-) => void;
-
-export type StateWatcher<Props> = (nextState: Props, prevState: Props) => void;
-
-export type WatcherInfo<Props> =
-  | {
-      key: KeyOf<Props>;
-      watcher: KeyWatcher<Props, KeyOf<Props>>;
-      multiple: false;
-    }
-  | {
-      keys: Array<KeyOf<Props>>;
-      watcher: StateWatcher<Props>;
-      multiple: true;
-    };
-
-export type Normalizer<T> = (val: T) => T;
-
-export type Equal<T> = (a: T, b: T) => boolean;
-
-export type DataType =
-  | 'string'
-  | 'number'
-  | 'bigint'
-  | 'boolean'
-  | 'symbol'
-  | 'undefined'
-  | 'object'
-  | 'array'
-  | 'function';
-
-export interface IProperty<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface,
-  Config extends IEmptyInterface,
-  Key extends KeyOf<Props>
-> {
-  type: DataType | Function;
-  item?: DataType | (() => Function);
-  enumerable?: boolean;
-  nullable?: boolean;
-  willSet?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    next: Props[Key] | undefined,
-    prev: Props[Key] | undefined,
-    draft: Props
-  ): void;
-  didSet?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    next: Props[Key] | undefined,
-    prev: Props[Key] | undefined,
-    state: Props
-  ): void;
-  valid?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    val: unknown,
-    draft: Props
-  ): boolean;
-  normalize?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    next: Props[Key],
-    prev: Props[Key] | undefined,
-    draft: Props
-  ): Props[Key];
-  equals?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    a: Props[Key],
-    b: Props[Key]
-  ): boolean;
-  toJSON?:
-    | ((
-        this: SmartState<Props, ComputedKeys, Methods, Config>,
-        val: Props[Key]
-      ) => unknown)
-    | false;
-}
-
-export interface IComputedProperty<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface,
-  Config extends IEmptyInterface,
-  Key extends ComputedKeys
-> extends IProperty<Props, ComputedKeys, Methods, Config, Key> {
-  deps: Array<Exclude<KeyOf<Props>, Key>>;
-  mutates?: Array<Exclude<KeyOf<Props>, Key>>;
-  get(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    state: Omit<Props, ComputedKeys> & Partial<Pick<Props, ComputedKeys>>
-  ): Props[Key];
-  set?(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    val: Props[Key],
-    draft: Omit<Props, ComputedKeys> & Partial<Pick<Props, ComputedKeys>>
-  ): void;
-}
-
-export interface IDraftWatcher<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface,
-  Config extends IEmptyInterface
-> {
-  deps: Array<KeyOf<Props>>;
-  mutates: Array<KeyOf<Props>>;
-  compute(
-    this: SmartState<Props, ComputedKeys, Methods, Config>,
-    nextState: Props,
-    prevState: Props
-  ): void;
-}
-
-export interface ISmartStateConfig<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface,
-  Config extends IEmptyInterface,
-  SuperPropKeys extends KeyOf<Props> = never
-> {
-  statics?: Record<string, any>;
-  properties: {
-    [Key in Exclude<KeyOf<Props>, ComputedKeys | SuperPropKeys>]: IProperty<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Key
-    >;
-  };
-  computed: {
-    [Key in Exclude<ComputedKeys, SuperPropKeys>]: IComputedProperty<
-      Props,
-      ComputedKeys,
-      Methods,
-      Config,
-      Key
-    >;
-  };
-  computes?: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>>;
-  drafts?: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>>;
-}
-
-export type SmartState<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface = IEmptyInterface,
-  Config extends IEmptyInterface = IEmptyInterface
-> = BaseSmartState<Props, ComputedKeys, Methods, Config> & Props & Methods;
-
-export type SmartStateInitialState<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>
-> = Omit<Props, ComputedKeys> & Partial<Pick<Props, ComputedKeys>>;
-
-export interface SmartStateConstructor<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface = IEmptyInterface,
-  Config extends IEmptyInterface = IEmptyInterface
-> {
-  new (
-    initialState: SmartStateInitialState<Props, ComputedKeys>,
-    config: Config
-  ): SmartState<Props, ComputedKeys, Methods, Config>;
-  prototype: SmartState<Props, ComputedKeys, Methods, Config>;
-}
-
 export class BaseSmartState<
-  Props extends IEmptyInterface,
-  ComputedKeys extends KeyOf<Props>,
-  Methods extends IEmptyInterface = IEmptyInterface,
-  Config extends IEmptyInterface = IEmptyInterface
+  Props,
+  ComputedKeys extends KeyOf<Props> = never,
+  Methods = IEmptyInterface,
+  Config = IEmptyInterface
 > {
   static fromJSON = (json: any) =>
     new BaseSmartState<any, any, any, any>(json.state, json.config);
@@ -237,10 +63,6 @@ export class BaseSmartState<
 
   // uncommitted latest state
   protected _draft: Props | null = null;
-
-  protected _history: IStateOperation[] = [];
-  protected _historyIndex = 0;
-  protected _navigatingHistory = false;
 
   protected _maxIteration = 10;
 
@@ -305,20 +127,15 @@ export class BaseSmartState<
     return {} as any;
   }
 
-  protected get _computeGraph(): ComputeGraph<KeyOf<Props>> {
-    return new ComputeGraph<KeyOf<Props>>();
+  protected get _computeGraph(): ComputeGraph<string> {
+    return new ComputeGraph<string>();
   }
 
-  protected get _computeGraphNodes(): {
-    [Key in KeyOf<Props>]: ComputeGraphNode<Props, Key>;
-  } {
-    return {} as any;
-  }
-
-  protected get _computes(): Array<
-    IDraftWatcher<Props, ComputedKeys, Methods, Config>
+  protected get _computesNodes(): Record<
+    string,
+    ISmartStateComputeNode<Props>
   > {
-    return [];
+    return {};
   }
 
   protected get _onDrafts(): Array<
@@ -333,34 +150,27 @@ export class BaseSmartState<
   ) {
     this.$config = config;
 
-    const { _computeGraphNodes, _keys, _computedKeys } = this;
-
-    const draft = { ...initialState } as Props;
-
-    for (let i = 0, il = _keys.length; i < il; i += 1) {
-      const key = _keys[i];
-      const node = _computeGraphNodes[key];
-      node.unchanged = true; // not really meaningful, since dirty is true. will be recalculated anyways
-      node.dirty = true;
-      node.value = draft[key];
-    }
-
-    this._computeGraph.run(
-      (key, graph) => !this._normalizeKeyAndReturnChanged(draft, key, undefined)
-    );
-
-    for (let key in draft) {
-      _computeGraphNodes[key].checkDeep(draft, this);
-    }
-    for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
-      _computeGraphNodes[_computedKeys[i]].checkDeep(draft, this);
-    }
-
     this._watchers = [];
 
     this._state = {} as Props;
 
-    this._draft = draft;
+    this._draft = { ...initialState } as Props;
+
+    const { _draft, _state } = this;
+
+    // clone computeNodes to keep track of prevValue separately for each instance
+    Object.defineProperty(this, '_computesNodes', {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: objectMap(this._computesNodes, (node) => node.clone()),
+    });
+
+    this._computeGraph.run(
+      (key) => this._computesNodes[key].run(_draft, _state, this),
+      objectKeys(_draft as object),
+      false
+    );
 
     this._commitDraft();
   }
@@ -391,31 +201,18 @@ export class BaseSmartState<
     return this.$state[key];
   }
 
-  protected _resetComputeNodes(draft: Props) {
-    const { _keys, _computeGraphNodes } = this;
-    for (let i = 0, il = _keys.length; i < il; i += 1) {
-      const key = _keys[i];
-      _computeGraphNodes[key].reset(draft[key]);
-    }
-  }
-
   $set(nextState: Partial<Props>): void {
     if (this._destroyed || objectEmpty(nextState)) return;
 
     const isNewCommit = this._draft == null;
     const draft = this._draft || (this._draft = { ...this._state });
-
-    this._resetComputeNodes(draft);
+    const prevState = { ...draft };
 
     const changeKeys: KeyOf<Props>[] = [];
-
-    const { $state, _computeGraphNodes } = this;
     for (let key in nextState) {
-      if (nextState[key] !== $state[key]) {
+      if (nextState[key] !== prevState[key]) {
         changeKeys.push(key);
-
         draft[key] = nextState[key]!;
-        _computeGraphNodes[key].dirty = true;
       }
     }
 
@@ -425,12 +222,14 @@ export class BaseSmartState<
     }
 
     try {
-      for (let i = 0, il = changeKeys.length; i < il; i += 1) {
-        _computeGraphNodes[changeKeys[i]].checkDeep(draft, this);
-      }
+      this._computeGraph.run(
+        (key) => this._computesNodes[key].run(draft, prevState, this),
+        changeKeys,
+        false
+      );
     } catch (e) {
       if (isNewCommit) this._draft = null;
-      // TODO else rollback();
+      else this._draft = prevState;
       throw e;
     }
 
@@ -442,18 +241,19 @@ export class BaseSmartState<
 
     const isNewCommit = this._draft == null;
     const draft = this._draft || (this._draft = { ...this._state });
-
-    this._resetComputeNodes(draft);
+    const prevState = { ...draft };
 
     draft[key] = val;
 
-    this._computeGraphNodes[key].dirty = true;
-
     try {
-      this._computeGraphNodes[key].checkDeep(draft, this);
+      this._computeGraph.run(
+        (key) => this._computesNodes[key].run(draft, prevState, this),
+        [key],
+        false
+      );
     } catch (e) {
       if (isNewCommit) this._draft = null;
-      // TODO else rollback();
+      else this._draft = prevState;
       throw e;
     }
 
@@ -504,117 +304,6 @@ export class BaseSmartState<
     return { dirty, dirtyKeys };
   }
 
-  protected _normalizeKeyAndReturnChanged<Key extends KeyOf<Props>>(
-    draft: Props,
-    key: Key,
-    prevVal: Props[Key] | undefined
-  ): boolean {
-    let nextVal = draft[key];
-    // unchanged
-    if (nextVal === prevVal) return false;
-
-    const { normalize, valid, equals } = this._allProps[key];
-    if (normalize != null) {
-      nextVal = draft[key] = normalize.call(
-        this as any,
-        nextVal as any,
-        prevVal as any,
-        draft
-      ) as typeof nextVal;
-
-      // unchanged
-      if (nextVal === prevVal) return false;
-    }
-
-    if (valid != null && !valid.call(this as any, nextVal, draft)) {
-      throw new InvalidPropertyValueError(key, nextVal);
-    }
-
-    if (
-      prevVal !== undefined &&
-      nextVal !== undefined &&
-      equals != null &&
-      equals.call(this as any, nextVal as any, prevVal as any)
-    ) {
-      // unchanged
-      draft[key] = prevVal;
-      return false;
-    }
-
-    // changed
-    return true;
-  }
-
-  protected _normalizeDraftAndCheckDirty(
-    draft: Props,
-    prevDraft: Props,
-    keys: Array<KeyOf<Props>> = this._keys
-  ) {
-    const dirty: Partial<Record<KeyOf<Props>, 1>> = {};
-    const dirtyKeys: Array<KeyOf<Props>> = [];
-    for (let i = 0, il = keys.length; i < il; i += 1) {
-      const key = keys[i];
-      if (this._normalizeKeyAndReturnChanged(draft, key, prevDraft[key])) {
-        dirty[key] = 1;
-        dirtyKeys.push(key);
-      }
-    }
-    return { dirty, dirtyKeys };
-  }
-
-  protected _runComputesAndReturnChanged(
-    draft: Props,
-    prevState: Props
-  ): boolean {
-    const { _allProps, _onDrafts, _maxIteration } = this;
-
-    let changed = false;
-    let prevDraft = prevState;
-
-    for (let iter = 0; true; iter += 1) {
-      if (iter >= _maxIteration) {
-        throw new TooManyDirtyCheckIterationError();
-      }
-
-      const { dirty, dirtyKeys } = this._normalizeDraftAndCheckDirty(
-        draft,
-        prevDraft
-      );
-      if (!dirtyKeys.length) return changed;
-
-      changed = true;
-
-      const draftSnapshot = { ...draft };
-
-      for (let di = 0, dl = dirtyKeys.length; di < dl; di += 1) {
-        const key = dirtyKeys[di];
-        const { willSet } = _allProps[key];
-        if (willSet != null) {
-          willSet.call(
-            this as any,
-            draft[key] as any,
-            prevDraft[key] as any,
-            draft
-          );
-        }
-      }
-
-      for (let j = 0, jl = _onDrafts.length; j < jl; j += 1) {
-        const {
-          deps,
-          compute,
-          //mutates,
-        } = _onDrafts[j];
-
-        if (objectHasKeyOfValue(dirty, deps, 1)) {
-          compute.call(this as any, draft, prevDraft);
-        }
-      }
-
-      prevDraft = draftSnapshot;
-    }
-  }
-
   protected _commitDraft(): boolean {
     const { _draft } = this;
     if (_draft == null) return false;
@@ -624,7 +313,7 @@ export class BaseSmartState<
     let changed = false;
 
     try {
-      const { _allProps, _maxIteration } = this;
+      const { _allProps, _maxIteration, _onDrafts } = this;
 
       let prevDraft = this._state;
 
@@ -633,7 +322,9 @@ export class BaseSmartState<
           throw new TooManyDirtyCheckIterationError();
         }
 
-        if (!this._runComputesAndReturnChanged(_draft, prevDraft)) break;
+        this._computeGraph.run((key) =>
+          this._computesNodes[key].run(_draft, prevDraft, this)
+        );
 
         // all props already normalized, just need to quick dirty check
         const { dirty, dirtyKeys } = this._checkDirtyQuick(_draft, prevDraft);
@@ -642,6 +333,19 @@ export class BaseSmartState<
         changed = true;
 
         const draftSnapshot = { ..._draft };
+
+        for (let di = 0, dl = dirtyKeys.length; di < dl; di += 1) {
+          const key = dirtyKeys[di];
+          const { willSet } = _allProps[key];
+          if (willSet != null) {
+            willSet.call(
+              this as any,
+              _draft[key] as any,
+              prevDraft[key] as any,
+              _draft
+            );
+          }
+        }
 
         // didSet
         for (let j = 0, jl = dirtyKeys.length; j < jl; j += 1) {
@@ -654,6 +358,18 @@ export class BaseSmartState<
               prevDraft[key] as any,
               _draft
             );
+          }
+        }
+
+        for (let j = 0, jl = _onDrafts.length; j < jl; j += 1) {
+          const {
+            deps,
+            compute,
+            //mutates,
+          } = _onDrafts[j];
+
+          if (objectHasKeyOfValue(dirty, deps, 1)) {
+            compute.call(this as any, {}, _draft, prevDraft);
           }
         }
 
@@ -682,17 +398,6 @@ export class BaseSmartState<
     if (!changed) return false;
 
     this._state = _draft;
-
-    // history
-    /*
-    const op: ISetMultiOperation<Props> = {
-      type: 'SET_MULTI',
-      timestamp: Date.now(),
-      data: { prev: prevState, next: _draft },
-    };
-    */
-    // TODO
-    // this._pushHistory(op);
 
     return true;
   }
@@ -740,35 +445,12 @@ export class BaseSmartState<
 
   $reset() {
     this._draft = null;
-    this._history = [];
-    this._historyIndex = 0;
-    this._navigatingHistory = false;
     this.$clear();
-  }
-
-  $addOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined): void {
-    if (this._destroyed) return;
-
-    if (fn) this.$cleanup.add(key, fn);
-  }
-
-  $setOffMap(key: string, fn: VoidFunction | VoidFunction[] | undefined) {
-    if (this._destroyed) return;
-
-    this.$cleanup.set(key, fn || []);
-  }
-
-  $clearOffMap(key: string) {
-    this.$cleanup.clear(key);
   }
 
   $destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
-
-    // TODO
-    // this._draft = {} as any;
-    // this._commitDraft();
 
     this.$cleanup.destroy();
     this.$reset();
@@ -788,86 +470,6 @@ export class BaseSmartState<
     return { config: this.$config, state };
   }
 
-  protected _pushHistory(op: IStateOperation): void {
-    if (this._navigatingHistory) {
-      console.error('pushHistory called while navigating history');
-      return;
-    }
-
-    const newHistory = this._history.slice(0, this._historyIndex);
-    newHistory.push(op);
-
-    this._history = newHistory;
-    this._historyIndex = this._history.length;
-  }
-
-  protected _redoOperation(op: IStateOperation) {
-    switch (op.type) {
-      case 'SET_MULTI':
-        this.$set((op as ISetMultiOperation<Props>).data.next);
-        break;
-    }
-  }
-
-  protected _undoOperation(op: IStateOperation) {
-    switch (op.type) {
-      case 'SET_MULTI':
-        this.$set((op as ISetMultiOperation<Props>).data.prev);
-        break;
-    }
-  }
-
-  $canUndo(): boolean {
-    return this._history[this._historyIndex - 1] != null;
-  }
-
-  $undo(): void {
-    if (this._destroyed) return;
-
-    const toIndex = this._historyIndex - 1;
-    const op = this._history[toIndex];
-    if (op) {
-      this._navigatingHistory = true;
-      this._undoOperation(op);
-      this._historyIndex = toIndex;
-      this._navigatingHistory = false;
-    }
-  }
-
-  $canRedo(): boolean {
-    return this._history[this._historyIndex + 1] != null;
-  }
-
-  $redo(): void {
-    if (this._destroyed) return;
-
-    const toIndex = this._historyIndex + 1;
-    const op = this._history[toIndex];
-    if (op) {
-      this._navigatingHistory = true;
-      this._redoOperation(op);
-      this._historyIndex = toIndex;
-      this._navigatingHistory = false;
-    }
-  }
-
-  $syncKeyToValue<Key extends KeyOf<Props>>(
-    key: Key,
-    value: Value<Props[Key]>
-  ): VoidFunction {
-    if (this._destroyed) return () => {};
-
-    this.$setKey(key, value.value);
-
-    const offValue = value.on((val) => this.$setKey(key, val));
-    const offState = this.$onKey(key, (val) => value.set(val));
-
-    return () => {
-      offValue();
-      offState();
-    };
-  }
-
   $subKeyToStateKey<Key extends KeyOf<Props>>(
     key: Key,
     state: SmartState<any, any, any, any>,
@@ -875,7 +477,7 @@ export class BaseSmartState<
   ): VoidFunction {
     if (this._destroyed) return () => {};
 
-    this.$setKey(key, state.$getKey(key2) as unknown as Props[Key]);
+    this.$setKey(key, state.$getKey(key2));
 
     return state.$onKey(key2, (val: any) => this.$setKey(key, val));
   }
@@ -887,7 +489,7 @@ export class BaseSmartState<
   ): VoidFunction {
     if (this._destroyed) return () => {};
 
-    this.$setKey(key, state.$getKey(key2) as unknown as Props[Key]);
+    this.$setKey(key, state.$getKey(key2));
 
     const offValue = state.$onKey(key2, (val: any) => this.$setKey(key, val));
 
@@ -900,14 +502,12 @@ export class BaseSmartState<
   }
 }
 
-export interface IEmptyInterface {}
-
 export function defineSmartState<
-  Props extends IEmptyInterface = IEmptyInterface,
-  ComputedKeys extends KeyOf<Props> = KeyOf<IEmptyInterface>,
-  Methods extends IEmptyInterface = IEmptyInterface,
-  Config extends IEmptyInterface = IEmptyInterface,
-  SuperPropKeys extends KeyOf<Props> = KeyOf<IEmptyInterface>
+  Props,
+  ComputedKeys extends KeyOf<Props> = never,
+  Methods = IEmptyInterface,
+  Config = IEmptyInterface,
+  SuperPropKeys extends KeyOf<Props> = never
 >(
   {
     statics,
@@ -945,8 +545,6 @@ export function defineSmartState<
     Exclude<ComputedKeys, SuperPropKeys>
   >;
 
-  const _newKeys = [..._propKeys, ..._computedKeys];
-
   const _enumerableKeys: Array<KeyOf<Props>> = [
     ...superPrototype._enumerableKeys,
     // new enumerable keys are added later
@@ -954,96 +552,60 @@ export function defineSmartState<
 
   const _toJSONKeys: Array<KeyOf<Props>> = [...superPrototype._toJSONKeys];
 
-  const _computes: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> =
-    [...superPrototype._computes];
+  const computesNodes: Record<string, ISmartStateComputeNode<Props>> = {
+    ...superPrototype._computesNodes,
+  };
 
-  const _onDrafts: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> =
-    [...superPrototype._onDrafts];
+  const onDrafts: Array<IDraftWatcher<Props, ComputedKeys, Methods, Config>> = [
+    ...superPrototype._onDrafts,
+  ];
 
   const computeGraph = (
-    superPrototype._computeGraph as ComputeGraph<KeyOf<Props>>
+    superPrototype._computeGraph as ComputeGraph<string>
   ).clone();
-
-  const computeGraphNodes = objectMap(
-    superPrototype._computeGraphNodes,
-    (node: ComputeGraphNode<Props, KeyOf<Props>>) => node.clone()
-  ) as any;
 
   for (let i = 0, il = _propKeys.length; i < il; i += 1) {
     const key = _propKeys[i];
-    const { normalize, valid, equals } = properties[key];
 
     computeGraph.addKey(key);
 
-    computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
-      computeGraphNodes,
+    const { mutates, set, update } = properties[key];
+    if (mutates != null && (set != null || update != null)) {
+      computeGraph.addDependers(key, mutates);
+    }
+
+    computesNodes[key] = new SmartStateKeyComputeNode(
       key,
-      [],
-      undefined,
-      undefined,
-      normalize,
-      valid,
-      equals
+      properties[key] as ISmartStateKeyComputeNodeConfig<Props, typeof key>
     );
   }
 
   for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
     const key = _computedKeys[i];
-    const { deps, mutates, get, set, normalize, valid, equals } = computed[key];
-    _onDrafts.push({
-      deps,
-      mutates: [key],
-      compute(nextState) {
-        nextState[key] = get.call(this, nextState);
-      },
-    });
+    const { deps, mutates = deps, set, update } = computed[key];
 
     computeGraph.addDependees(key, deps);
 
-    if (set != null) {
-      _onDrafts.push({
-        deps: [key],
-        mutates: deps,
-        compute(nextState) {
-          set.call(this, nextState[key], nextState);
-        },
-      });
-
-      computeGraph.addDependers(key, deps);
+    if (set != null || update != null) {
+      computeGraph.addDependers(key, mutates);
     }
 
-    computeGraphNodes[key] = new ComputeGraphNode<Props, typeof key>(
-      computeGraphNodes,
+    computesNodes[key] = new SmartStateKeyComputeNode(
       key,
-      mutates ?? (set == null ? [] : deps.slice()),
-      get,
-      set as any,
-      normalize,
-      valid,
-      equals
+      computed[key] as ISmartStateKeyComputeNodeConfig<Props, typeof key>
     );
   }
 
-  for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
-    const key = _computedKeys[i];
-    const { deps } = computed[key];
-
-    for (let i = 0, il = deps.length; i < il; i += 1) {
-      addItem(computeGraphNodes[deps[i]].invalidates, key);
-    }
-  }
-
   for (let i = 0, il = computes.length; i < il; i += 1) {
-    const { deps, mutates } = computes[i];
+    const { id = randomString(), deps, mutates, compute } = computes[i];
 
-    for (let di = 0, dl = deps.length; di < dl; di += 1) {
-      const dep = deps[di];
-      computeGraph.addDependers(dep, mutates);
-    }
+    computesNodes[id] = new SmartStateComputeNode<Props>(compute);
+
+    computeGraph.addDependees(id, deps);
+    computeGraph.addDependers(id, mutates);
   }
 
-  _computes.push(...computes);
-  _onDrafts.push(...drafts);
+  onDrafts.push(...drafts);
   computeGraph.prepareByComplexity();
 
   Object.defineProperties(prototype, {
@@ -1117,35 +679,27 @@ export function defineSmartState<
       writable: true,
       value: computeGraph,
     },
-    _computeGraphNodes: {
+    _computesNodes: {
       configurable: true,
       enumerable: false,
       writable: true,
-      value: computeGraphNodes,
-    },
-    _computes: {
-      configurable: true,
-      enumerable: false,
-      writable: true,
-      value: _onDrafts,
+      value: computesNodes,
     },
     _onDrafts: {
       configurable: true,
       enumerable: false,
       writable: true,
-      value: _onDrafts,
+      value: onDrafts,
     },
   });
 
-  for (let i = 0, il = _newKeys.length; i < il; i += 1) {
-    const key = _newKeys[i];
-    if ((key as string) in prototype) {
-      throw new PropertyNameConflictError(key);
-    }
-  }
-
   for (let i = 0, il = _propKeys.length; i < il; i += 1) {
     const key = _propKeys[i];
+
+    if (key in prototype) {
+      throw new PropertyNameConflictError(key);
+    }
+
     const { enumerable = true, toJSON } = properties[key];
 
     if (enumerable) {
@@ -1173,6 +727,11 @@ export function defineSmartState<
 
   for (let i = 0, il = _computedKeys.length; i < il; i += 1) {
     const key = _computedKeys[i];
+
+    if (key in prototype) {
+      throw new PropertyNameConflictError(key);
+    }
+
     const {
       toJSON,
       enumerable = typeof toJSON === 'function',

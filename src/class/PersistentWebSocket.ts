@@ -175,7 +175,7 @@ export class PersistentWebSocket<
     if (ws == null) return;
 
     const events = this._handlers;
-    for (const type in events) {
+    for (let type in events) {
       const fn = events[type];
       if (fn) (ws as BrowserWebSocket).addEventListener(type, fn);
     }
@@ -185,7 +185,7 @@ export class PersistentWebSocket<
     if (ws == null) return;
 
     const events = this._handlers;
-    for (const type in events) {
+    for (let type in events) {
       const fn = events[type];
       if (fn) (ws as BrowserWebSocket).removeEventListener(type, fn);
     }

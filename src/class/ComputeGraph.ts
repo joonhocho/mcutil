@@ -7,7 +7,8 @@ export class ComputeGraph<Key extends string> extends DependencyGraph<Key> {
   }
 
   run(
-    callback: (key: Key, graph: ComputeGraph<Key>) => boolean, // unchanged
+    // returns dirty keys, true = all dependers, false = none
+    callback: (key: Key, graph: ComputeGraph<Key>) => Key[] | boolean,
     keys?: Array<Key>,
     shouldNotSortKeys?: boolean
   ): void {
@@ -28,11 +29,12 @@ export class ComputeGraph<Key extends string> extends DependencyGraph<Key> {
 
     let curKey: Key | undefined;
     while ((curKey = queue.shift())) {
-      if (callback(curKey, this)) continue;
-
-      const dependers = dependersMap[curKey];
-      for (let di = 0, dl = dependers.length; di < dl; di += 1) {
-        queue.push(dependers[di]);
+      const res = callback(curKey, this);
+      if (res) {
+        const dependers = res === true ? dependersMap[curKey] : res;
+        for (let di = 0, dl = dependers.length; di < dl; di += 1) {
+          queue.push(dependers[di]);
+        }
       }
     }
   }

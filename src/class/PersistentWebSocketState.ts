@@ -1,7 +1,8 @@
-import { BaseSmartState, SmartState, defineSmartState } from './SmartState.js';
+import { BaseSmartState, defineSmartState } from './SmartState.js';
+
+import type { SmartState } from './SmartStateTypes.js';
 
 import type { WebSocket as NodeWebSocket } from 'ws';
-
 export type BrowserWebSocket = WebSocket;
 
 export type IsomorphicWebSocket = BrowserWebSocket | NodeWebSocket;
@@ -80,8 +81,11 @@ export const PersistentWebSocketState = defineSmartState<
       ws: {
         type: 'object',
         toJSON: false,
-        willSet(next, prev, draft) {
-          if (next) draft.status = getWebSocketReadyState(next) || 'connecting';
+        set(update, next, draft) {
+          if (next) {
+            const status = getWebSocketReadyState(next) || 'connecting';
+            if (status !== draft.status) update.status = status;
+          }
         },
       },
       status: {
@@ -112,21 +116,17 @@ export const PersistentWebSocketState = defineSmartState<
       },
       delayMin: {
         type: 'number',
-        willSet(next, prev, draft) {
-          if (next != null) {
-            if (draft.delay < next) {
-              draft.delay = next;
-            }
+        set(update, next, draft) {
+          if (next != null && draft.delay < next) {
+            update.delay = next;
           }
         },
       },
       delayMax: {
         type: 'number',
-        willSet(next, prev, draft) {
-          if (next != null) {
-            if (draft.delay > next) {
-              draft.delay = next;
-            }
+        set(update, next, draft) {
+          if (next != null && draft.delay > next) {
+            update.delay = next;
           }
         },
       },
