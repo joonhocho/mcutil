@@ -3,8 +3,8 @@ import type {
   VoidFunction,
   WithOptionalProps,
   IEmptyInterface,
-} from '../types/types.ts';
-import type { BaseSmartState } from './SmartState.ts';
+} from '../types/types.js';
+import type { BaseSmartState } from './SmartState.js';
 
 export type KeyWatcher<Props, Key extends KeyOf<Props>> = (
   next: Props[Key],
@@ -40,9 +40,9 @@ export type DataType =
 
 export interface IProperty<
   Props,
-  ComputedKeys extends KeyOf<Props> = never,
-  Methods = IEmptyInterface,
-  Config = IEmptyInterface,
+  ComputedKeys extends KeyOf<Props>,
+  Methods,
+  Config,
   Key extends KeyOf<Props>
 > {
   type: DataType | Function;
@@ -110,9 +110,9 @@ export interface IProperty<
 
 export interface IComputedProperty<
   Props,
-  ComputedKeys extends KeyOf<Props> = never,
-  Methods = IEmptyInterface,
-  Config = IEmptyInterface,
+  ComputedKeys extends KeyOf<Props>,
+  Methods,
+  Config,
   Key extends ComputedKeys
 > extends IProperty<Props, ComputedKeys, Methods, Config, Key> {
   deps: Array<Exclude<KeyOf<Props>, Key>>;
