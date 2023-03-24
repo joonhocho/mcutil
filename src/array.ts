@@ -372,9 +372,43 @@ export const arrayFindClosest = <T>(
       minIndex = i;
     }
   }
+
   return minIndex;
 };
 
+// comparator returning > 0 -> continue search right side
+// comparator returning < 0 -> continue search left side
+// comparator returning == 0 -> found match
+export const arrayBinarySearchIndex = <T>(
+  sortedArr: T[],
+  compare: (a: T) => number
+): number => {
+  // In most languages, inner variable declaration makes the code slower.
+  let left = 0;
+  let right = sortedArr.length - 1;
+  let mid = 0;
+  let ordering = 0;
+
+  while (left <= right) {
+    mid = ((left + right) / 2) >>> 0;
+
+    ordering = compare(sortedArr[mid]);
+    if (ordering === 0) {
+      return mid;
+    }
+    if (ordering < 0) {
+      right = mid - 1;
+    } else {
+      left = mid + 1;
+    }
+  }
+
+  return -1;
+};
+
+// comparator returning > 0 -> continue search right side
+// comparator returning < 0 -> continue search left side
+// comparator returning == 0 -> found match
 // find closest to given target using binary search.
 // Returns element closest to target in arr[]
 // https://www.geeksforgeeks.org/find-closest-number-array/

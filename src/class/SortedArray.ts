@@ -1,3 +1,5 @@
+import { arrayBinarySearchIndex } from '../array.js';
+
 export type Comparator<T> = (a: T, b: T) => number;
 
 export type ComparisonOperator = '<' | '<=' | '==' | '>' | '>=' | '!=';
@@ -48,29 +50,7 @@ export class SortedArray<T> {
   // comparator returning < 0 -> continue search left side
   // comparator returning == 0 -> found match
   findIndex(customComparator: (a: T) => number): number {
-    const { _list } = this;
-
-    // In most languages, inner variable declaration makes the code slower.
-    let left = 0;
-    let right = _list.length - 1;
-    let mid = 0;
-    let ordering = 0;
-
-    while (left <= right) {
-      mid = ((left + right) / 2) >>> 0;
-
-      ordering = customComparator(_list[mid]);
-      if (ordering === 0) {
-        return mid;
-      }
-      if (ordering < 0) {
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-
-    return -1;
+    return arrayBinarySearchIndex(this._list, customComparator);
   }
 
   findFirstIndex(customComparator: (a: T) => number): number {
